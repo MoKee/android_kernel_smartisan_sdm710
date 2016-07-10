@@ -63,7 +63,11 @@ static void scm_disable_sdi(void);
  * There is no API from TZ to re-enable the registers.
  * So the SDI cannot be re-enabled when it already by-passed.
  */
+#ifdef CONFIG_VENDOR_SMARTISAN
+static int download_mode;
+#else
 static int download_mode = 1;
+#endif
 #else
 static const int download_mode;
 #endif
