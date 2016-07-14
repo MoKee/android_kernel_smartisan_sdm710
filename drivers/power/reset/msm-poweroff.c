@@ -91,7 +91,12 @@ static bool scm_dload_supported;
 static struct kobject dload_kobj;
 static void *dload_type_addr;
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+/* To preserve console-ramoops */
+static bool force_warm_reboot = true;
+#else
 static bool force_warm_reboot;
+#endif
 
 static int dload_set(const char *val, const struct kernel_param *kp);
 /* interface for exporting attributes */
