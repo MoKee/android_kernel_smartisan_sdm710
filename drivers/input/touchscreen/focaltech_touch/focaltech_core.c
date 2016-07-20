@@ -681,6 +681,11 @@ static int fts_input_report_b(struct fts_ts_data *data)
     u32 key_y_coor = data->pdata->key_y_coord;
     struct ts_event *events = data->events;
 
+    input_event(data->input_dev, EV_SYN, SYN_TIME_SEC,
+            ktime_to_timespec(data->timestamp).tv_sec);
+    input_event(data->input_dev, EV_SYN, SYN_TIME_NSEC,
+            ktime_to_timespec(data->timestamp).tv_nsec);
+
     for (i = 0; i < data->touch_point; i++) {
         if (KEY_EN(data) && TOUCH_IS_KEY(events[i].y, key_y_coor)) {
             fts_input_report_key(data, i);
@@ -761,6 +766,11 @@ static int fts_input_report_a(struct fts_ts_data *data)
     bool va_reported = false;
     u32 key_y_coor = data->pdata->key_y_coord;
     struct ts_event *events = data->events;
+
+    input_event(data->input_dev, EV_SYN, SYN_TIME_SEC,
+            ktime_to_timespec(data->timestamp).tv_sec);
+    input_event(data->input_dev, EV_SYN, SYN_TIME_NSEC,
+            ktime_to_timespec(data->timestamp).tv_nsec);
 
     for (i = 0; i < data->touch_point; i++) {
         if (KEY_EN(data) && TOUCH_IS_KEY(events[i].y, key_y_coor)) {
@@ -963,6 +973,8 @@ static irqreturn_t fts_ts_interrupt(int irq, void *data)
 #if FTS_ESDCHECK_EN
     fts_esdcheck_set_intr(1);
 #endif
+
+    ts_data->timestamp = ktime_get();
 
     ret = fts_read_touchdata(ts_data);
     if (ret == 0) {

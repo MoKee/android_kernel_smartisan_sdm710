@@ -171,6 +171,8 @@ struct fts_ts_data {
     struct early_suspend early_suspend;
 #endif
 
+    ktime_t timestamp;
+
     struct proc_dir_entry *key_proc;
     bool key_enable;
     bool key_swap;
