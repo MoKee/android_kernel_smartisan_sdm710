@@ -170,6 +170,8 @@ struct fts_ts_data {
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
     struct early_suspend early_suspend;
 #endif
+
+    ktime_t timestamp;
 };
 
 /*****************************************************************************
