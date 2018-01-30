@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2018 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -886,6 +886,12 @@ typedef enum {
     WMITLV_TAG_STRUC_wmi_offload_11k_report_fixed_param,
     WMITLV_TAG_STRUC_wmi_invoke_neighbor_report_fixed_param,
     WMITLV_TAG_STRUC_wmi_neighbor_report_offload_tlv_param,
+    WMITLV_TAG_STRUC_wmi_vdev_set_connectivity_check_stats,
+    WMITLV_TAG_STRUC_wmi_vdev_get_connectivity_check_stats,
+    WMITLV_TAG_STRUC_wmi_bpf_set_vdev_enable_cmd_fixed_param,
+    WMITLV_TAG_STRUC_wmi_bpf_set_vdev_work_memory_cmd_fixed_param,
+    WMITLV_TAG_STRUC_wmi_bpf_get_vdev_work_memory_cmd_fixed_param,
+    WMITLV_TAG_STRUC_wmi_bpf_get_vdev_work_memory_resp_evt_fixed_param,
 } WMITLV_TAG_ID;
 
 /*
@@ -1242,6 +1248,9 @@ typedef enum {
     OP(WMI_SAR_GET_LIMITS_CMDID)\
     OP(WMI_11K_OFFLOAD_REPORT_CMDID) \
     OP(WMI_11K_INVOKE_NEIGHBOR_REPORT_CMDID) \
+    OP(WMI_BPF_SET_VDEV_ENABLE_CMDID) \
+    OP(WMI_BPF_SET_VDEV_WORK_MEMORY_CMDID) \
+    OP(WMI_BPF_GET_VDEV_WORK_MEMORY_CMDID) \
     /* add new CMD_LIST elements above this line */
 
 
@@ -1439,6 +1448,7 @@ typedef enum {
     OP(WMI_PDEV_DMA_RING_BUF_RELEASE_EVENTID) \
     OP(WMI_SAR_GET_LIMITS_EVENTID) \
     OP(WMI_SAR2_RESULT_EVENTID) \
+    OP(WMI_BPF_GET_VDEV_WORK_MEMORY_RESP_EVENTID) \
     /* add new EVT_LIST elements above this line */
 
 
@@ -3273,6 +3283,19 @@ WMITLV_CREATE_PARAM_STRUC(WMI_BPF_DEL_VDEV_INSTRUCTIONS_CMDID);
     WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_bpf_set_vdev_active_mode_cmd_fixed_param, wmi_bpf_set_vdev_active_mode_cmd_fixed_param, fixed_param, WMITLV_SIZE_FIX)
 WMITLV_CREATE_PARAM_STRUC(WMI_BPF_SET_VDEV_ACTIVE_MODE_CMDID);
 
+#define WMITLV_TABLE_WMI_BPF_SET_VDEV_ENABLE_CMDID(id,op,buf,len) \
+  WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_bpf_set_vdev_enable_cmd_fixed_param, wmi_bpf_set_vdev_enable_cmd_fixed_param, fixed_param, WMITLV_SIZE_FIX)
+WMITLV_CREATE_PARAM_STRUC(WMI_BPF_SET_VDEV_ENABLE_CMDID);
+
+#define WMITLV_TABLE_WMI_BPF_SET_VDEV_WORK_MEMORY_CMDID(id,op,buf,len) \
+  WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_bpf_set_vdev_work_memory_cmd_fixed_param, wmi_bpf_set_vdev_work_memory_cmd_fixed_param, fixed_param, WMITLV_SIZE_FIX) \
+  WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_ARRAY_BYTE, A_UINT8, buf_inst, WMITLV_SIZE_VAR)
+WMITLV_CREATE_PARAM_STRUC(WMI_BPF_SET_VDEV_WORK_MEMORY_CMDID);
+
+#define WMITLV_TABLE_WMI_BPF_GET_VDEV_WORK_MEMORY_CMDID(id,op,buf,len) \
+  WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_bpf_get_vdev_work_memory_cmd_fixed_param, wmi_bpf_get_vdev_work_memory_cmd_fixed_param, fixed_param, WMITLV_SIZE_FIX)
+WMITLV_CREATE_PARAM_STRUC(WMI_BPF_GET_VDEV_WORK_MEMORY_CMDID);
+
 /* Enable/Disable Smart Antenna */
 #define WMITLV_TABLE_WMI_PDEV_SMART_ANT_ENABLE_CMDID(id,op,buf,len) \
     WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_pdev_smart_ant_enable_cmd_fixed_param, wmi_pdev_smart_ant_enable_cmd_fixed_param, fixed_param, WMITLV_SIZE_FIX) \
@@ -3513,7 +3536,8 @@ WMITLV_CREATE_PARAM_STRUC(WMI_PDEV_SET_DIVERSITY_GAIN_CMDID);
 
 /* set arp stats cmd */
 #define WMITLV_TABLE_WMI_VDEV_SET_ARP_STAT_CMDID(id,op,buf,len) \
-    WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_vdev_set_arp_stats_cmd_fixed_param, wmi_vdev_set_arp_stats_cmd_fixed_param, fixed_param, WMITLV_SIZE_FIX)
+    WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_vdev_set_arp_stats_cmd_fixed_param, wmi_vdev_set_arp_stats_cmd_fixed_param, fixed_param, WMITLV_SIZE_FIX) \
+    WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_ARRAY_STRUC, wmi_vdev_set_connectivity_check_stats, connectivity_check_stats, WMITLV_SIZE_VAR)
 WMITLV_CREATE_PARAM_STRUC(WMI_VDEV_SET_ARP_STAT_CMDID);
 
 /* get arp stats cmd */
@@ -4496,6 +4520,12 @@ WMITLV_CREATE_PARAM_STRUC(WMI_BPF_CAPABILIY_INFO_EVENTID);
     WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_bpf_vdev_stats_info_evt_fixed_param, wmi_bpf_vdev_stats_info_evt_fixed_param, fixed_param, WMITLV_SIZE_FIX)
 WMITLV_CREATE_PARAM_STRUC(WMI_BPF_VDEV_STATS_INFO_EVENTID);
 
+/* bpf offload vdev get work memory event */
+#define WMITLV_TABLE_WMI_BPF_GET_VDEV_WORK_MEMORY_RESP_EVENTID(id,op,buf,len) \
+  WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_bpf_get_vdev_work_memory_resp_evt_fixed_param, wmi_bpf_get_vdev_work_memory_resp_evt_fixed_param, fixed_param, WMITLV_SIZE_FIX) \
+  WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_ARRAY_BYTE, A_UINT8, data, WMITLV_SIZE_VAR)
+WMITLV_CREATE_PARAM_STRUC(WMI_BPF_GET_VDEV_WORK_MEMORY_RESP_EVENTID);
+
 /* Indicate new country code to host from 11d scan */
 #define WMITLV_TABLE_WMI_11D_NEW_COUNTRY_EVENTID(id,op,buf,len) \
     WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_11d_new_country_event_fixed_param, wmi_11d_new_country_event_fixed_param, fixed_param, WMITLV_SIZE_FIX)
@@ -4742,7 +4772,8 @@ WMITLV_CREATE_PARAM_STRUC(WMI_PDEV_CHECK_CAL_VERSION_EVENTID);
 
 /* ARP stats response event */
 #define WMITLV_TABLE_WMI_VDEV_GET_ARP_STAT_EVENTID(id,op,buf,len) \
-    WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_vdev_get_arp_stats_event_fixed_param, wmi_vdev_get_arp_stats_event_fixed_param, fixed_param, WMITLV_SIZE_FIX)
+    WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_STRUC_wmi_vdev_get_arp_stats_event_fixed_param, wmi_vdev_get_arp_stats_event_fixed_param, fixed_param, WMITLV_SIZE_FIX) \
+    WMITLV_ELEM(id,op,buf,len, WMITLV_TAG_ARRAY_STRUC, wmi_vdev_get_connectivity_check_stats, connectivity_check_stats, WMITLV_SIZE_VAR)
 WMITLV_CREATE_PARAM_STRUC(WMI_VDEV_GET_ARP_STAT_EVENTID);
 
 /* Coex BT activity response event */

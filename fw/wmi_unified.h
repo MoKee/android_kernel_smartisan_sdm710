@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2018 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -1068,6 +1068,9 @@ typedef enum {
     WMI_BPF_SET_VDEV_INSTRUCTIONS_CMDID,
     WMI_BPF_DEL_VDEV_INSTRUCTIONS_CMDID,
     WMI_BPF_SET_VDEV_ACTIVE_MODE_CMDID,
+    WMI_BPF_SET_VDEV_ENABLE_CMDID,
+    WMI_BPF_SET_VDEV_WORK_MEMORY_CMDID,
+    WMI_BPF_GET_VDEV_WORK_MEMORY_CMDID,
 
     /** WMI commands related to monitor mode. */
     WMI_MNT_FILTER_CMDID = WMI_CMD_GRP_START_ID(WMI_GRP_MONITOR),
@@ -1586,7 +1589,7 @@ typedef enum {
     /** pkt filter (BPF) offload relevant events */
     WMI_BPF_CAPABILIY_INFO_EVENTID = WMI_EVT_GRP_START_ID(WMI_GRP_BPF_OFFLOAD),
     WMI_BPF_VDEV_STATS_INFO_EVENTID,
-
+    WMI_BPF_GET_VDEV_WORK_MEMORY_RESP_EVENTID,
 
     /* RMC specific event */
     /* RMC manual leader selected event */
@@ -4010,13 +4013,18 @@ typedef struct {
 typedef struct {
     A_UINT32 tlv_header; /* TLV tag and len; tag equals WMITLV_TAG_STRUC_wmi_vdev_config_ratemask_fixed_param */
     A_UINT32 vdev_id;
-    /* 0 - cck/ofdm
+    /*
+     * 0 - cck/ofdm
      * 1 - HT
-     * 2 - VHT */
+     * 2 - VHT
+     * 3 - HE
+     */
     A_UINT32 type;
 
     A_UINT32 mask_lower32;
     A_UINT32 mask_higher32;
+    A_UINT32 mask_lower32_2;
+    A_UINT32 mask_higher32_2;
 } wmi_vdev_config_ratemask_cmd_fixed_param;
 
 /* nrp action - Filter Neighbor Rx Packets  - add/remove filter */
@@ -8113,6 +8121,11 @@ typedef enum {
     /** VDEV parameter to config dynamic DTIM count */
     WMI_VDEV_PARAM_DYNDTIM_CNT,                              /* 0x7c */
 
+    /** VDEV parameter to enable or disable RTT responder role
+      * valid values: 0-Disable responder role 1-Enable responder role
+      */
+    WMI_VDEV_PARAM_ENABLE_DISABLE_RTT_RESPONDER_ROLE,        /* 0x7d */
+
 
     /*=== ADD NEW VDEV PARAM TYPES ABOVE THIS LINE ===
      * The below vdev param types are used for prototyping, and are
@@ -9441,6 +9454,16 @@ typedef struct {
 #define WMI_PEER_NSS_VHT160                             0x14
 /* peer NSS for VHT160 - Extended NSS support */
 #define WMI_PEER_NSS_VHT80_80                           0x15
+/* Peer SU TXBF sounding interval */
+#define WMI_PEER_PARAM_SU_TXBF_SOUNDING_INTERVAL        0x16
+/* Peer MU TXBF sounding interval */
+#define WMI_PEER_PARAM_MU_TXBF_SOUNDING_INTERVAL        0x17
+/* Peer TXBF sounding enable or disable */
+#define WMI_PEER_PARAM_TXBF_SOUNDING_ENABLE             0x18
+/* Per peer 11ax OFDMA enable or disable */
+#define WMI_PEER_PARAM_OFDMA_ENABLE                     0x19
+/* Per peer 11ax/11ac MU enable or disable */
+#define WMI_PEER_PARAM_MU_ENABLE                        0x1a
 
 /** mimo ps values for the parameter WMI_PEER_MIMO_PS_STATE  */
 #define WMI_PEER_MIMO_PS_NONE                          0x0
@@ -12747,6 +12770,21 @@ typedef struct {
 } wmi_vdev_get_arp_stats_event_fixed_param;
 
 typedef struct {
+    A_UINT32 tlv_header; /*  TLV tag and len; tag equals WMITLV_TAG_STRUC_wmi_vdev_set_connectivity_check_stats */
+    A_UINT32 pkt_type_bitmap;  /* WMI_IP_CONNECTIVITY_STATS_RX_PKT_TYPE_BITMAP - only for DNS, TCP and ICMP */
+    A_UINT32 tcp_src_port;  /* target will maintain TCP stats (only) for frames with this src port */
+    A_UINT32 tcp_dst_port; /* target will maintain TCP stats (only) for frames with this dst port */
+    A_UINT32 icmp_ipv4; /* target will maintain ICMPv4 stats (only) for frames containing this IP address */
+} wmi_vdev_set_connectivity_check_stats;
+
+/*  per vdev dns/icmp/tcp based stats*/
+typedef struct {
+    A_UINT32 tlv_header; /* TLV tag and len; tag equals WMITLV_TAG_STRUC_wmi_vdev_get_connectivity_check_stats */
+    A_UINT32 tcp_ack_recvd; /* number of tcp syn ack's received by FW */
+    A_UINT32 icmpv4_rsp_recvd; /* number of icmpv4 responses received by FW */
+} wmi_vdev_get_connectivity_check_stats;
+
+typedef struct {
     A_UINT32 tlv_header;
     A_UINT32 vdev_id;
 #define IPSEC_NATKEEPALIVE_FILTER_DISABLE 0
@@ -14715,6 +14753,12 @@ typedef struct {
 
     /** index of peak magnitude bin (signed) */
     A_INT32 peak_sidx;
+
+    /** Max pulse chirp velocity in delta bins over chirp FFT interval */
+    A_INT32 pulse_delta_peak;
+
+    /** Max pulse chirp velocity variance in delta bins */
+    A_INT32 pulse_delta_diff;
 
 } wmi_dfs_radar_event_fixed_param;
 
@@ -19181,6 +19225,44 @@ typedef struct wmi_bpf_set_vdev_active_mode_cmd_s {
     A_UINT32 uc_mode; /* refer to FW_ACTIVE_BPF_MODE */
 } wmi_bpf_set_vdev_active_mode_cmd_fixed_param;
 
+typedef struct wmi_bpf_set_vdev_enable_cmd_s {
+    A_UINT32 tlv_header;
+    A_UINT32 vdev_id;
+    A_UINT32 is_enabled; /* fw assume host default enables */
+} wmi_bpf_set_vdev_enable_cmd_fixed_param;
+
+typedef struct wmi_bpf_set_vdev_work_memory_cmd_s {
+    A_UINT32 tlv_header;
+    A_UINT32 vdev_id;
+    A_UINT32 bpf_version; /* bpf instruction version */
+    A_UINT32 program_len; /* the program length may be changed by this command */
+    A_UINT32 addr_offset; /* start writing addr in the working memory */
+    A_UINT32 length;      /* the writing size of this command (byte units) */
+/*
+ * The TLV follows:
+ *  A_UINT8 buf_inst[]; <-- Variable length buffer with the data to write
+ */
+} wmi_bpf_set_vdev_work_memory_cmd_fixed_param;
+
+typedef struct wmi_bpf_get_vdev_work_memory_cmd_s {
+    A_UINT32 tlv_header;
+    A_UINT32 vdev_id;
+    A_UINT32 addr_offset; /* start reading addr in the working memory */
+    A_UINT32 length;      /* reading size from addr (byte units) */
+} wmi_bpf_get_vdev_work_memory_cmd_fixed_param;
+
+typedef struct wmi_bpf_get_vdev_work_memory_resp_evt_s {
+    A_UINT32 tlv_header;
+    A_UINT32 vdev_id;
+    A_UINT32 offset;    /* read memory offset from start_addr */
+    A_UINT32 length;    /* read memory length of this command */
+    A_UINT32 fragment;  /* 1 means more data will come, 0 means last fragment */
+/*
+ * The TLV follows:
+ *  A_UINT8 buf_inst[]; <-- Variable length buffer containing the read data
+ */
+} wmi_bpf_get_vdev_work_memory_resp_evt_fixed_param;
+
 #define AES_BLOCK_LEN           16  /* in bytes */
 #define FIPS_KEY_LENGTH_128     16  /* in bytes */
 #define FIPS_KEY_LENGTH_256     32  /* in bytes */
@@ -21084,6 +21166,9 @@ static INLINE A_UINT8 *wmi_id_to_name(A_UINT32 wmi_command)
         WMI_RETURN_STRING(WMI_PDEV_DMA_RING_CFG_REQ_CMDID);
         WMI_RETURN_STRING(WMI_11K_OFFLOAD_REPORT_CMDID);
         WMI_RETURN_STRING(WMI_11K_INVOKE_NEIGHBOR_REPORT_CMDID);
+        WMI_RETURN_STRING(WMI_BPF_SET_VDEV_ENABLE_CMDID);
+        WMI_RETURN_STRING(WMI_BPF_SET_VDEV_WORK_MEMORY_CMDID);
+        WMI_RETURN_STRING(WMI_BPF_GET_VDEV_WORK_MEMORY_CMDID);
     }
 
     return "Invalid WMI cmd";
