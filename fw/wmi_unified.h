@@ -4957,6 +4957,13 @@ typedef enum {
      * rate will be used instead.
      */
     WMI_PDEV_PARAM_CCK_TX_ENABLE,                     /* 0x9e */
+    /*
+     * Set the user-specified antenna gain, but in 0.5 dB units.
+     * This is a finer-granularity version of WMI_PDEV_PARAM_ANTENNA_GAIN.
+     * E.g. to set a gain of 15.5 dB, a value of 31 could be provided as the
+     * value accompanying the PDEV_PARAM_ANTENNA_GAIN_HALF_DB parameter type.
+     */
+    WMI_PDEV_PARAM_ANTENNA_GAIN_HALF_DB,              /* 0x9f */
 } WMI_PDEV_PARAM;
 
 typedef struct {
@@ -10224,6 +10231,19 @@ typedef struct {
     A_UINT32 roam_scan_mode;
     A_UINT32 vdev_id;
     A_UINT32 flags; /* see WMI_ROAM_SCAN_MODE_FLAG defs */
+    /*
+     * Minimum duration allowed between two consecutive roam scans.
+     * Roam scan is not allowed, if duration between two consecutive
+     * roam scans is less than this time.
+     */
+    A_UINT32 min_delay_btw_scans; /* In msec */
+    /*
+     * Bitmask (with enum WMI_ROAM_TRIGGER_REASON_ID identifying the bit
+     * positions) showing for which roam_trigger_reasons the
+     * min_delay_btw_scans constraint should be applied.
+     * 0x0 means there is no time restrictions between successive roam scans.
+     */
+    A_UINT32 min_delay_roam_trigger_reason_bitmask;
 } wmi_roam_scan_mode_fixed_param;
 
 #define WMI_ROAM_SCAN_MODE_NONE        0x0
@@ -10932,6 +10952,7 @@ typedef struct {
     A_UINT32 qos_caps;
     A_UINT32 wmm_caps;
     A_UINT32 mcsset[ROAM_OFFLOAD_NUM_MCS_SET>>2]; /* since this 4 byte aligned, we don't declare it as tlv array */
+    A_UINT32 handoff_delay_for_rx; /* In msec. Delay Hand-Off by this duration to receive pending Rx frames from current BSS */
 } wmi_roam_offload_tlv_param;
 
 
