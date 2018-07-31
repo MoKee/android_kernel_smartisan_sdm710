@@ -4156,6 +4156,14 @@ typedef struct {
     A_UINT32 vdev_id;
     A_UINT32 desc_id;  /* echoed in tx_compl_event */
     A_UINT32 chanfreq; /* MHz units */
+    /* WMI_MGMT_TX_SEND_CMDID is used for both pass by value and
+     * pass by reference WMI management frames.
+     *
+     * a) If the command is for pass by reference,
+     *    paddr_lo and padd_hi will hold the address of remote/host buffer
+     * b) If the command is for pass by value,
+     *    paddr_lo and paddr_hi will be NULL.
+     */
     A_UINT32 paddr_lo;
     A_UINT32 paddr_hi;
     A_UINT32 frame_len;
@@ -6276,6 +6284,8 @@ typedef struct {
     A_UINT32 pdev_id; /** pdev_id for identifying the MAC.  See macros starting with WMI_PDEV_ID_ for values. In non-DBDC case host should set it to 0. */
     /** number of beacon stats event structures (wmi_bcn_stats) */
     A_UINT32 num_bcn_stats;
+    /** number of extended peer stats event structures (wmi_peer_extd_stats) */
+    A_UINT32 num_peer_extd_stats;
 
 /* This TLV is followed by another TLV of array of bytes
  *   A_UINT8 data[];
@@ -6955,7 +6965,10 @@ typedef struct {
     A_UINT32 last_tx_rate_code;
     /** TX power used by peer - units are 0.5 dBm */
     A_INT32 last_tx_power;
-    A_UINT32 reserved[4]; /** for future use - add new peer stats here */
+
+    /* Total number of received multicast & broadcast data frames corresponding to this peer */
+    A_UINT32 rx_mc_bc_cnt; /* 1 in the MSB of rx_mc_bc_cnt represents a valid data */
+    A_UINT32 reserved[3]; /** for future use - add new peer stats here */
 } wmi_peer_extd_stats;
 
 typedef struct {
@@ -8621,6 +8634,12 @@ typedef enum {
 
     /** Uplink OFDMA PPDU bandwidth (0: 20MHz, 1: 40MHz, 2: 80Mhz, 3: 160MHz)*/
     WMI_VDEV_PARAM_UL_PPDU_BW,                            /* 0x8E */
+    
+    /** Enable/Disable FW handling MU EDCA change from AP (1: En, 0:Dis)  */
+    WMI_VDEV_PARAM_MU_EDCA_FW_UPDATE_EN,                  /* 0x8F */
+    
+    /** Update dot11ObssNbruToleranceTime in fw. Param value: seconds */
+    WMI_VDEV_PARAM_UPDATE_OBSS_RU_TOLERANCE_TIME,         /* 0x90 */
 
 
     /*=== ADD NEW VDEV PARAM TYPES ABOVE THIS LINE ===
