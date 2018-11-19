@@ -233,18 +233,20 @@
 #endif
 
 #ifdef CONFIG_VENDOR_SMARTISAN
-		smart {
-			label = "smart";
+		/* Shortcuts */
+		shortcuts {
+			label = "shortcuts";
 			gpios = <&tlmm 91 0x1>;
 			linux,input-type = <1>;
-			linux,code = <766>;
+			linux,code = <0x246>;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 			linux,can-disable;
 		};
 
-		vol_dn {
-			label = "volume_dn";
+		/* Volume Down */
+		volume_down {
+			label = "volume_down";
 			gpios = <&pm660l_gpios 7 GPIO_ACTIVE_LOW>;
 			linux,input-type = <1>;
 			linux,code = <114>;
