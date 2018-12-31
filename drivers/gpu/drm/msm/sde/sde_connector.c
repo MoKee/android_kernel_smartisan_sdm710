@@ -23,6 +23,9 @@
 #include "dsi_display.h"
 #include "sde_crtc.h"
 #include "sde_rm.h"
+#ifdef CONFIG_EXPOSURE_ADJUSTMENT
+#include "exposure_adjustment.h"
+#endif
 
 #define BL_NODE_NAME_SIZE 32
 
@@ -88,6 +91,10 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
+
+#ifdef CONFIG_EXPOSURE_ADJUSTMENT
+	bl_lvl = ea_panel_calc_backlight(bl_lvl);
+#endif
 
 	if (c_conn->ops.set_backlight) {
 		event.type = DRM_EVENT_SYS_BACKLIGHT;
