@@ -104,7 +104,13 @@ obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_ZFORCE)	+= zforce_ts.o
 obj-$(CONFIG_TOUCHSCREEN_COLIBRI_VF50)	+= colibri-vf50-ts.o
 obj-$(CONFIG_TOUCHSCREEN_ROHM_BU21023)	+= rohm_bu21023.o
+ifdef CONFIG_VENDOR_SMARTISAN
+obj-$(CONFIG_TOUCHSCREEN_FTS)		+= focaltech_touch_smartisan/
+obj-$(CONFIG_TOUCHSCREEN_GOODIX_GT1X)	+= gt1x/
+obj-y	+= force_driver/
+else
 obj-$(CONFIG_TOUCHSCREEN_FTS)		+= focaltech_touch/
+endif
 obj-$(CONFIG_TOUCHSCREEN_GT9XX_v28)		+= gt9xx_v2.8/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET)	+= hxchipset/
 obj-$(CONFIG_TOUCHSCREEN_EKTF3XXX_CHIPSET) += ektf3xxx/
