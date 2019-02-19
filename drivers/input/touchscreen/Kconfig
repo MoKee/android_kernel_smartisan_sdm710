@@ -1224,6 +1224,8 @@ config TOUCHSCREEN_SYNAPTICS_DSX
 
           If unsure, say N.
 
-source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+# source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
+source "drivers/input/touchscreen/gt1x/Kconfig"
 
 endif
