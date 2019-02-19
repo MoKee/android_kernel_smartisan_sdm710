@@ -182,4 +182,5 @@ obj-$(CONFIG_TEE)		+= tee/
 
 ifdef CONFIG_VENDOR_SMARTISAN
 obj-y += smartisan/
+obj-$(CONFIG_FINGERPRINT) += fingerprint/
 endif
