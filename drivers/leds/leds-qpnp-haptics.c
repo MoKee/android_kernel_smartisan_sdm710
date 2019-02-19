@@ -94,6 +94,11 @@
 #define HAP_VMAX_MIN_MV			116
 #define HAP_VMAX_MAX_MV			3596
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+#define HAP_AMP_MIN			1
+#define HAP_AMP_MAX			255
+#endif
+
 #define HAP_ILIM_CFG_REG(chip)		(chip->base + 0x52)
 #define HAP_ILIM_SEL_MASK		BIT(0)
 #define HAP_ILIM_400_MA			0
@@ -340,6 +345,9 @@ struct hap_chip {
 	u8				act_type;
 	u8				wave_shape;
 	u8				wave_samp_idx;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	u32				amplitude;
+#endif
 	u32				wave_samp[HAP_WAVE_SAMP_SET_LEN];
 	u32				brake_pat[HAP_BRAKE_PAT_LEN];
 	bool				en_brake;
@@ -1206,9 +1214,13 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 	struct hap_lra_ares_param ares_cfg;
 	enum hap_mode old_play_mode;
 	u8 old_ares_mode;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	int rc;
+#else
 	u32 brake_pat[HAP_BRAKE_PAT_LEN] = {0};
 	u32 wave_samp[HAP_WAVE_SAMP_LEN] = {0};
 	int rc, vmax_mv;
+#endif
 
 	if (!chip->lra_auto_mode)
 		return false;
@@ -1221,6 +1233,7 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 	old_play_mode = chip->play_mode;
 	pr_debug("auto_mode, time_ms: %d\n", time_ms);
 	if (time_ms <= 20) {
+#ifndef CONFIG_VENDOR_SMARTISAN
 		wave_samp[0] = HAP_WF_SAMP_MAX;
 		wave_samp[1] = HAP_WF_SAMP_MAX;
 		chip->wf_samp_len = 2;
@@ -1228,8 +1241,10 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 			wave_samp[2] = HAP_WF_SAMP_MAX;
 			chip->wf_samp_len = 3;
 		}
+#endif
 
 		/* short pattern */
+#ifndef CONFIG_VENDOR_SMARTISAN
 		rc = qpnp_haptics_parse_buffer_dt(chip);
 		if (!rc) {
 			rc = qpnp_haptics_wave_rep_config(chip,
@@ -1247,6 +1262,7 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 				return rc;
 			}
 		}
+#endif
 
 		ares_cfg.lra_high_z = HAP_LRA_HIGH_Z_OPT1;
 		ares_cfg.lra_res_cal_period = HAP_RES_CAL_PERIOD_MIN;
@@ -1260,10 +1276,12 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 			ares_cfg.calibrate_at_eop = -EINVAL;
 		}
 
+#ifndef CONFIG_VENDOR_SMARTISAN
 		vmax_mv = HAP_VMAX_MAX_MV;
 		rc = qpnp_haptics_vmax_config(chip, vmax_mv, true);
 		if (rc < 0)
 			return rc;
+#endif
 
 		/* enable play_irq for buffer mode */
 		if (chip->play_irq >= 0 && !chip->play_irq_en) {
@@ -1271,9 +1289,15 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 			chip->play_irq_en = true;
 		}
 
+#ifndef CONFIG_VENDOR_SMARTISAN
 		brake_pat[0] = BRAKE_VMAX;
+#endif
 		chip->play_mode = HAP_BUFFER;
+#ifdef CONFIG_VENDOR_SMARTISAN
+		chip->wave_shape = HAP_WAVE_SINE;
+#else
 		chip->wave_shape = HAP_WAVE_SQUARE;
+#endif
 	} else {
 		/* long pattern */
 		ares_cfg.lra_high_z = HAP_LRA_HIGH_Z_OPT1;
@@ -1290,10 +1314,12 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 			ares_cfg.calibrate_at_eop = -EINVAL;
 		}
 
+#ifndef CONFIG_VENDOR_SMARTISAN
 		vmax_mv = chip->vmax_mv;
 		rc = qpnp_haptics_vmax_config(chip, vmax_mv, false);
 		if (rc < 0)
 			return rc;
+#endif
 
 		/* enable play_irq for direct mode */
 		if (chip->play_irq >= 0 && chip->play_irq_en) {
@@ -1318,9 +1344,11 @@ static int qpnp_haptics_auto_mode_config(struct hap_chip *chip, int time_ms)
 		return rc;
 	}
 
+#ifndef CONFIG_VENDOR_SMARTISAN
 	rc = qpnp_haptics_brake_config(chip, brake_pat);
 	if (rc < 0)
 		return rc;
+#endif
 
 	rc = qpnp_haptics_masked_write_reg(chip, HAP_CFG2_REG(chip),
 			HAP_LRA_RES_TYPE_MASK, chip->wave_shape);
@@ -1649,6 +1677,9 @@ static ssize_t qpnp_haptics_show_wf_samp(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%s\n", str);
 }
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+#define SHORT_PATTERN 20
+#endif
 static ssize_t qpnp_haptics_store_wf_samp(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1674,6 +1705,14 @@ static ssize_t qpnp_haptics_store_wf_samp(struct device *dev,
 		pr_err("Error in configuring buffer mode %d\n", rc);
 		return rc;
 	}
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	rc = qpnp_haptics_auto_mode_config(chip, SHORT_PATTERN);
+	if (rc < 0) {
+		pr_err("Unable to do auto mode config\n");
+		return rc;
+	}
+#endif
 
 	return count;
 }
@@ -1798,6 +1837,127 @@ static ssize_t qpnp_haptics_store_lra_auto_mode(struct device *dev,
 	return count;
 }
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+static ssize_t qpnp_haptics_show_amplitude(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *cdev = dev_get_drvdata(dev);
+	struct hap_chip *chip = container_of(cdev, struct hap_chip, cdev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", chip->amplitude);
+}
+
+#define HAP_WF_SAMP_SHIFT       2
+static ssize_t qpnp_haptics_store_amplitude(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct led_classdev *cdev = dev_get_drvdata(dev);
+	struct hap_chip *chip = container_of(cdev, struct hap_chip, cdev);
+
+	u32 wave_samp[HAP_WAVE_SAMP_LEN] = {0};
+	u32 hap_wf_samp;
+	int data, rc, i, vmax_mv;
+
+	rc = kstrtoint(buf, 10, &data);
+	if (rc < 0)
+		 return rc;
+
+	if (data < HAP_AMP_MIN || data > HAP_AMP_MAX)
+		return count;
+
+	chip->amplitude = data;
+	pr_debug("amplitude: %d\n", chip->amplitude);
+	mutex_lock(&chip->param_lock);
+	if (chip->play_time_ms <= 20) {
+		/* short pattern */
+		hap_wf_samp = (chip->amplitude >> HAP_WF_SAMP_SHIFT) & GENMASK(5, 1);
+		wave_samp[0] = hap_wf_samp;
+		wave_samp[1] = hap_wf_samp;
+		chip->wf_samp_len = 2;
+		if (chip->play_time_ms > 15) {
+			wave_samp[2] = hap_wf_samp;
+			chip->wf_samp_len = 3;
+		}
+
+		for (i = 0; i < chip->wf_samp_len; i++)
+			pr_debug("wave_samp[%d]: %x\n", i, wave_samp[i]);
+
+
+		rc = qpnp_haptics_buffer_config(chip, wave_samp, true);
+		if (rc < 0) {
+			pr_err("Error in configuring buffer mode %d\n", rc);
+			mutex_unlock(&chip->param_lock);
+			return rc;
+		}
+
+		vmax_mv = HAP_VMAX_MAX_MV;
+		rc = qpnp_haptics_vmax_config(chip, vmax_mv, true);
+		if (rc < 0) {
+			mutex_unlock(&chip->param_lock);
+			return rc;
+		}
+	} else {
+		/* long pattern */
+		vmax_mv = (chip->amplitude - HAP_AMP_MIN) * (chip->vmax_mv - HAP_VMAX_MIN_MV)
+				/ (HAP_AMP_MAX - HAP_AMP_MIN) + HAP_VMAX_MIN_MV;
+		pr_debug("vmax_mv: %d\n", vmax_mv);
+		rc = qpnp_haptics_vmax_config(chip, vmax_mv, false);
+		if (rc < 0) {
+			mutex_unlock(&chip->param_lock);
+			return rc;
+		}
+	}
+	mutex_unlock(&chip->param_lock);
+
+	return count;
+}
+
+static ssize_t qpnp_haptics_show_brake_pat(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *cdev = dev_get_drvdata(dev);
+	struct hap_chip *chip = container_of(cdev, struct hap_chip, cdev);
+	char str[HAP_STR_SIZE + 1];
+	char *ptr = str;
+	int i, len = 0;
+
+	for (i = 0; i < ARRAY_SIZE(chip->brake_pat); i++) {
+		len = scnprintf(ptr, HAP_STR_SIZE, "%x ", chip->brake_pat[i]);
+		ptr += len;
+	}
+	ptr[len] = '\0';
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", str);
+}
+
+static ssize_t qpnp_haptics_store_brake_pat(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct led_classdev *cdev = dev_get_drvdata(dev);
+	struct hap_chip *chip = container_of(cdev, struct hap_chip, cdev);
+	u32 pat[HAP_BRAKE_PAT_LEN] = {0};
+	int bytes_read, rc;
+	unsigned int data, pos = 0, i = 0;
+
+	while (pos < count && i < ARRAY_SIZE(pat) &&
+		sscanf(buf + pos, "%x%n", &data, &bytes_read) == 1) {
+		pat[i++] = data;
+		pos += bytes_read;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(chip->brake_pat); i++)
+		chip->brake_pat[i] = pat[i];
+
+	rc = qpnp_haptics_brake_config(chip, NULL);
+	if (rc < 0) {
+		pr_err("Error in configuring buffer mode %d\n", rc);
+		return rc;
+	}
+
+	return count;
+}
+#endif
+
 static struct device_attribute qpnp_haptics_attrs[] = {
 	__ATTR(state, 0664, qpnp_haptics_show_state, qpnp_haptics_store_state),
 	__ATTR(duration, 0664, qpnp_haptics_show_duration,
@@ -1815,6 +1975,12 @@ static struct device_attribute qpnp_haptics_attrs[] = {
 	__ATTR(vmax_mv, 0664, qpnp_haptics_show_vmax, qpnp_haptics_store_vmax),
 	__ATTR(lra_auto_mode, 0664, qpnp_haptics_show_lra_auto_mode,
 		qpnp_haptics_store_lra_auto_mode),
+#ifdef CONFIG_VENDOR_SMARTISAN
+	__ATTR(amplitude, 0664, qpnp_haptics_show_amplitude,
+		qpnp_haptics_store_amplitude),
+	__ATTR(brake_pat, 0664, qpnp_haptics_show_brake_pat,
+		qpnp_haptics_store_brake_pat),
+#endif
 };
 
 /* Dummy functions for brightness */
@@ -2199,6 +2365,10 @@ static int qpnp_haptics_parse_dt(struct hap_chip *chip)
 		pr_err("Unable to read Vmax rc=%d\n", rc);
 		return rc;
 	}
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	chip->amplitude = HAP_AMP_MAX;
+#endif
 
 	chip->ilim_ma = HAP_ILIM_400_MA;
 	rc = of_property_read_u32(node, "qcom,ilim-ma", &temp);
