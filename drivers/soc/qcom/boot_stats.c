@@ -22,6 +22,9 @@
 #include <linux/sched.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#ifdef CONFIG_VENDOR_SMARTISAN
+#include <soc/qcom/boot_stats.h>
+#endif
 
 struct boot_stats {
 	uint32_t bootloader_start;
@@ -33,6 +36,12 @@ struct boot_stats {
 static void __iomem *mpm_counter_base;
 static uint32_t mpm_counter_freq;
 static struct boot_stats __iomem *boot_stats;
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+struct boot_shared_imem_cookie_type __iomem *boot_imem = NULL;
+extern char *log_first_idx_get(void);
+extern char *log_next_idx_get(void);
+#endif
 
 static int mpm_parse_dt(void)
 {
@@ -72,6 +81,40 @@ static int mpm_parse_dt(void)
 	return 0;
 }
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+uint64_t get_boot_reason(void)
+{
+	if (boot_imem == NULL)
+		boot_stats_init();
+
+	return (uint64_t) boot_imem->pon_reason;
+}
+
+uint64_t get_poff_fault_reason(void)
+{
+	if (boot_imem == NULL)
+		boot_stats_init();
+
+	return (uint64_t) boot_imem->fault_reason;
+}
+
+uint32_t get_secure_boot_value(void)
+{
+	if (boot_imem == NULL)
+		boot_stats_init();
+
+	return (uint32_t) boot_imem->is_enable_secure_boot;
+}
+
+uint32_t get_lpddr_vendor_id(void)
+{
+	if (boot_imem == NULL)
+		boot_stats_init();
+
+	return (uint32_t) boot_imem->lpddr_vendor_id;
+}
+#endif
+
 static void print_boot_stats(void)
 {
 	pr_info("KPI: Bootloader start count = %u\n",
@@ -91,10 +134,27 @@ static void print_boot_stats(void)
 int boot_stats_init(void)
 {
 	int ret;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	struct device_node *np;
+#endif
 
 	ret = mpm_parse_dt();
 	if (ret < 0)
 		return -ENODEV;
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem");
+	if (!np) {
+		pr_err("can't find qcom,msm-imem node\n");
+		return -ENODEV;
+	}
+
+	boot_imem = of_iomap(np, 0);
+
+	boot_imem->kernel_log_buf_addr = virt_to_phys(log_buf_addr_get());
+	boot_imem->log_first_idx_addr = virt_to_phys(log_first_idx_get());
+	boot_imem->log_next_idx_addr = virt_to_phys(log_next_idx_get());
+#endif
 
 	print_boot_stats();
 
