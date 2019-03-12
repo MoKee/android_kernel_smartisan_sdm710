@@ -154,6 +154,9 @@ struct dsi_panel {
 	struct mipi_dsi_device mipi_device;
 
 	struct mutex panel_lock;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	struct mutex transfer_mutex;
+#endif
 	struct drm_panel drm_panel;
 	struct mipi_dsi_host *host;
 	struct device *parent;
@@ -180,6 +183,9 @@ struct dsi_panel {
 	bool ulps_enabled;
 	bool ulps_suspend_enabled;
 	bool allow_phy_power_off;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	int panel_power_state;
+#endif
 
 	bool panel_initialized;
 	bool te_using_watchdog_timer;
