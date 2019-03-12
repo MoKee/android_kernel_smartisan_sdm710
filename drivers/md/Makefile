@@ -64,6 +64,10 @@ obj-$(CONFIG_DM_REQ_CRYPT)	+= dm-req-crypt.o
 obj-$(CONFIG_DM_ANDROID_VERITY) += dm-android-verity.o
 obj-$(CONFIG_DM_BOW)		+= dm-bow.o
 
+ifdef CONFIG_VENDOR_SMARTISAN
+obj-$(CONFIG_DM_ASYMMETRIC_STRIPE) += dm-asymmetric-stripe.o
+endif
+
 ifeq ($(CONFIG_DM_UEVENT),y)
 dm-mod-objs			+= dm-uevent.o
 endif
