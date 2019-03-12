@@ -2138,7 +2138,11 @@ static int fg_adjust_recharge_voltage(struct fg_chip *chip)
 	/* Lower the recharge voltage in soft JEITA */
 	if (chip->health == POWER_SUPPLY_HEALTH_WARM ||
 			chip->health == POWER_SUPPLY_HEALTH_COOL)
+#ifdef CONFIG_VENDOR_SMARTISAN
+		recharge_volt_mv -= 300;
+#else
 		recharge_volt_mv -= 200;
+#endif
 
 	rc = fg_set_recharge_voltage(chip, recharge_volt_mv);
 	if (rc < 0) {
@@ -2565,6 +2569,10 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	return count;
 }
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+extern bool bat_full_flag;
+#endif
+
 static void status_change_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -2589,6 +2597,11 @@ static void status_change_work(struct work_struct *work)
 		goto out;
 	}
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (bat_full_flag)
+		chip->charge_status = POWER_SUPPLY_STATUS_FULL;
+	else
+#endif
 	chip->charge_status = prop.intval;
 	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
@@ -2964,6 +2977,32 @@ out:
 		schedule_work(&chip->status_change_work);
 	}
 }
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+static int update_soc_period_ms = 20000;
+
+static void update_soc_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+					    update_soc_work.work);
+	int msoc, rc = 0;
+
+	rc = fg_get_prop_capacity(chip, &msoc);
+	if (rc < 0) {
+		pr_err("Error in getting capacity, rc=%d\n", rc);
+		goto resched;
+	}
+
+	if (msoc != chip->pre_msoc) {
+		chip->pre_msoc = msoc;
+		if (chip->fg_psy)
+			power_supply_changed(chip->fg_psy);
+	}
+resched:
+	schedule_delayed_work(&chip->update_soc_work,
+			msecs_to_jiffies(update_soc_period_ms));
+}
+#endif
 
 static void sram_dump_work(struct work_struct *work)
 {
@@ -5231,6 +5270,9 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->ttf_work, ttf_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	INIT_DELAYED_WORK(&chip->update_soc_work, update_soc_work);
+#endif
 
 	rc = fg_memif_init(chip);
 	if (rc < 0) {
@@ -5309,6 +5351,9 @@ static int fg_gen3_probe(struct platform_device *pdev)
 
 	device_init_wakeup(chip->dev, true);
 	schedule_delayed_work(&chip->profile_load_work, 0);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	schedule_delayed_work(&chip->update_soc_work, msecs_to_jiffies(500));
+#endif
 
 	pr_debug("FG GEN3 driver probed successfully\n");
 	return 0;
@@ -5327,6 +5372,9 @@ static int fg_gen3_suspend(struct device *dev)
 		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
 
 	cancel_delayed_work_sync(&chip->ttf_work);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	cancel_delayed_work(&chip->update_soc_work);
+#endif
 	if (fg_sram_dump)
 		cancel_delayed_work_sync(&chip->sram_dump_work);
 	return 0;
@@ -5342,6 +5390,9 @@ static int fg_gen3_resume(struct device *dev)
 		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
 
 	schedule_delayed_work(&chip->ttf_work, 0);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	schedule_delayed_work(&chip->update_soc_work, msecs_to_jiffies(500));
+#endif
 	if (fg_sram_dump)
 		schedule_delayed_work(&chip->sram_dump_work,
 				msecs_to_jiffies(fg_sram_dump_period_ms));
