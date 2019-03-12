@@ -492,6 +492,9 @@ static void pl_taper_work(struct work_struct *work)
 					true, eff_fcc_ua);
 		} else {
 			pl_dbg(chip, PR_PARALLEL, "master is fast charging; waiting for next taper\n");
+#ifdef CONFIG_VENDOR_SMARTISAN
+			vote(chip->fcc_votable, TAPER_STEPPER_VOTER, false, 0);
+#endif
 		}
 		/* wait for the charger state to deglitch after FCC change */
 		msleep(PL_TAPER_WORK_DELAY_MS);
@@ -1165,7 +1168,11 @@ static int pl_notifier_call(struct notifier_block *nb,
 	if ((strcmp(psy->desc->name, "parallel") == 0)
 	    || (strcmp(psy->desc->name, "battery") == 0)
 	    || (strcmp(psy->desc->name, "main") == 0))
+#ifdef CONFIG_VENDOR_SMARTISAN
+		schedule_delayed_work(&chip->status_change_work, HZ/5);
+#else
 		schedule_delayed_work(&chip->status_change_work, 0);
+#endif
 
 	return NOTIFY_OK;
 }
