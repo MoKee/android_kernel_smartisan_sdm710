@@ -517,6 +517,10 @@ struct fg_chip {
 	struct work_struct	esr_filter_work;
 	struct alarm		esr_filter_alarm;
 	ktime_t			last_delta_temp_time;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	struct delayed_work	update_soc_work;
+	int 			pre_msoc;
+#endif
 };
 
 /* Debugfs data structures are below */
