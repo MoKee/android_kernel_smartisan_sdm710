@@ -9,7 +9,11 @@ obj-y += sde/
 ifeq ($(CONFIG_SPECTRA2_CAMERA), y)
 obj-$(CONFIG_SPECTRA_CAMERA) += camera_v3/
 else
+ifdef CONFIG_VENDOR_SMARTISAN
+obj-$(CONFIG_SPECTRA_CAMERA) += camera_smartisan/
+else
 obj-$(CONFIG_SPECTRA_CAMERA) += camera/
+endif # CONFIG_VENDOR_SMARTISAN
 endif
 obj-$(CONFIG_MSMB_CAMERA) += camera_v2/
 obj-y += broadcast/
