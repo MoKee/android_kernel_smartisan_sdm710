@@ -52,6 +52,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+int pro_flag = 0;
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 
 static int ufshcd_tag_req_type(struct request *rq)
@@ -7958,6 +7962,14 @@ static int ufs_read_device_desc_data(struct ufs_hba *hba)
 	if (err)
 		goto out;
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (0x7F != desc_buf[DEVICE_DESC_PARAM_HIGH_PR_LUN]) {
+		pro_flag = 1;
+	} else {
+		pro_flag = 0;
+	}
+#endif
+
 	/*
 	 * getting vendor (manufacturerID) and Bank Index in big endian
 	 * format
@@ -7976,6 +7988,20 @@ out:
 	kfree(desc_buf);
 	return err;
 }
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+ssize_t ufs_provision_show(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	return sprintf(buf, "%d\n", pro_flag);
+}
+DEVICE_ATTR_RO(ufs_provision);
+
+void ufshcd_add_sysfs_prov(struct ufs_hba *hba)
+{
+	device_create_file(hba->dev, &dev_attr_ufs_provision);
+}
+#endif
 
 static void ufshcd_init_desc_sizes(struct ufs_hba *hba)
 {
@@ -10823,6 +10849,10 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	ufsdbg_add_debugfs(hba);
 
 	ufshcd_add_sysfs_nodes(hba);
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	ufshcd_add_sysfs_prov(hba);
+#endif
 
 	return 0;
 
