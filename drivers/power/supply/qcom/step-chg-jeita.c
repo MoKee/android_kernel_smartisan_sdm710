@@ -204,10 +204,15 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	struct device_node *batt_node, *profile_node;
 	u32 max_fv_uv, max_fcc_ma;
 	const char *batt_type_str;
+#ifndef CONFIG_VENDOR_SMARTISAN
 	const __be32 *handle;
+#endif
 	int batt_id_ohms, rc;
 	union power_supply_propval prop = {0, };
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	batt_node = of_find_node_by_name(chip->dev->of_node, "qcom,battery-data");
+#else
 	handle = of_get_property(chip->dev->of_node,
 			"qcom,battery-data", NULL);
 	if (!handle) {
@@ -216,6 +221,7 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 	}
 
 	batt_node = of_find_node_by_phandle(be32_to_cpup(handle));
+#endif
 	if (!batt_node) {
 		pr_err("Get battery data node failed\n");
 		return -EINVAL;
@@ -710,7 +716,11 @@ static int step_chg_notifier_call(struct notifier_block *nb,
 	if ((strcmp(psy->desc->name, "battery") == 0)
 			|| (strcmp(psy->desc->name, "usb") == 0)) {
 		__pm_stay_awake(chip->step_chg_ws);
+#ifdef CONFIG_VENDOR_SMARTISAN
+		schedule_delayed_work(&chip->status_change_work, HZ/5);
+#else
 		schedule_delayed_work(&chip->status_change_work, 0);
+#endif
 	}
 
 	if ((strcmp(psy->desc->name, "bms") == 0)) {

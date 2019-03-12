@@ -700,6 +700,10 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		/* Not in ship mode as long as device is active */
 		val->intval = 0;
 		break;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	case POWER_SUPPLY_PROP_ONLINE:
+		return -EINVAL;
+#endif
 	default:
 		pr_err_ratelimited("parallel psy get prop %d not supported\n",
 			prop);
