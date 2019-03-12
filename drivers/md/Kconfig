@@ -587,4 +587,15 @@ config DM_ANDROID_VERITY_AT_MOST_ONCE_DEFAULT_ENABLED
 	  any more after all the data blocks it covers have been verified anyway.
 
 	  If unsure, say N.
+
+config DM_ASYMMETRIC_STRIPE
+	tristate "DM asymmetric stripe(asymmetric raid0)"
+	depends on BLK_DEV_DM
+	---help---
+	  This device-mapper target creates a asymmetric raid0/stripe device that
+	  support asymmetric stripe chunk size and can gain same performance as
+	  raid0 device.
+
+	  You must configure the accurate ratio between different physical storage
+	  device respectively.
 endif # MD
