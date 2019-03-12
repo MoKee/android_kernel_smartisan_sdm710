@@ -50,6 +50,19 @@ enum dsi_dsc_ratio_type {
 	DSC_RATIO_TYPE_MAX
 };
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+#define PANEL_ON_STATE  1
+#define PANEL_OFF_STATE 0
+
+static int panel_power_state = PANEL_ON_STATE;
+
+static struct dsi_panel * set_panel;
+
+bool goodix_glove_mode = 0;
+
+extern int select_display;
+#endif
+
 static u32 dsi_dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
 		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
 
@@ -426,6 +439,9 @@ static int dsi_panel_set_pinctrl_state(struct dsi_panel *panel, bool enable)
 	return rc;
 }
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+extern int goodix_lcd_state_chg_callback(int lcd_on);
+#endif
 
 static int dsi_panel_power_on(struct dsi_panel *panel)
 {
@@ -449,6 +465,11 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		goto error_disable_gpio;
 	}
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	goodix_lcd_state_chg_callback(1);
+	panel_power_state = PANEL_ON_STATE;
+#endif
+
 	goto exit;
 
 error_disable_gpio:
@@ -471,6 +492,11 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 {
 	int rc = 0;
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	mutex_lock(&panel->transfer_mutex);
+	goodix_lcd_state_chg_callback(0);
+#endif
+
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
 
@@ -489,6 +515,11 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	rc = dsi_pwr_enable_regulator(&panel->power_info, false);
 	if (rc)
 		pr_err("[%s] failed to enable vregs, rc=%d\n", panel->name, rc);
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	panel_power_state = PANEL_OFF_STATE;
+	mutex_unlock(&panel->transfer_mutex);
+#endif
 
 	return rc;
 }
@@ -639,9 +670,15 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 
 	dsi = &panel->mipi_device;
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	mutex_lock(&panel->transfer_mutex);
+#endif
 	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
 	if (rc < 0)
 		pr_err("failed to update dcs backlight:%d\n", bl_lvl);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	mutex_unlock(&panel->transfer_mutex);
+#endif
 
 	return rc;
 }
@@ -1452,6 +1489,9 @@ error:
 const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-pre-on-command",
 	"qcom,mdss-dsi-on-command",
+#ifdef CONFIG_VENDOR_SMARTISAN
+	"qcom,mdss-dsi-on-command-old",
+#endif
 	"qcom,mdss-dsi-post-panel-on-command",
 	"qcom,mdss-dsi-pre-off-command",
 	"qcom,mdss-dsi-off-command",
@@ -1476,6 +1516,9 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-pre-on-command-state",
 	"qcom,mdss-dsi-on-command-state",
+#ifdef CONFIG_VENDOR_SMARTISAN
+	"qcom,mdss-dsi-on-command-old-state",
+#endif
 	"qcom,mdss-dsi-post-on-command-state",
 	"qcom,mdss-dsi-pre-off-command-state",
 	"qcom,mdss-dsi-off-command-state",
@@ -2986,6 +3029,9 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
 	mutex_init(&panel->panel_lock);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	mutex_init(&panel->transfer_mutex);
+#endif
 	panel->parent = parent;
 	return panel;
 error:
@@ -3001,6 +3047,113 @@ void dsi_panel_put(struct dsi_panel *panel)
 
 	kfree(panel);
 }
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+extern int if_use_focal_ic(void);
+extern int fts_enter_glove_mode(int mode);
+extern void gt1x_enter_glove_mode(u8 glove_flag);
+
+extern int fts_enter_slide_mode(int mode);
+
+void dsi_panel_set_ie_level(u32 ie_level)
+{
+	pr_debug("%s:set diplay panel ie_level is %d", __func__, ie_level);
+	if (set_panel->panel_power_state == 0) {
+		pr_err("%s:in power off state.\n", __func__);
+		return;
+	}
+
+	switch (ie_level) {
+		case 260:
+			if (if_use_focal_ic()) {
+				fts_enter_glove_mode(0);
+			} else {
+				gt1x_enter_glove_mode(0);
+				goodix_glove_mode = 0;
+			}
+			break;
+		case 261:
+			if (if_use_focal_ic()) {
+				fts_enter_glove_mode(1);
+			} else {
+				gt1x_enter_glove_mode(1);
+				goodix_glove_mode = 1;
+			}
+			break;
+		case 280:
+			if (if_use_focal_ic()) {
+				fts_enter_slide_mode(0);
+			} else {
+				pr_info("%s: this is saved for goodix ic.\n", __func__);
+			}
+			break;
+		case 281:
+			if (if_use_focal_ic()) {
+				fts_enter_slide_mode(1);
+			} else {
+				pr_info("%s: this is saved for goodix ic.\n", __func__);
+			}
+			break;
+		default:
+			break;
+	}
+
+	return;
+}
+
+static ssize_t mdss_mdp_show_blank_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+
+	pr_debug("panel_power_state = %d\n", panel_power_state);
+	ret = scnprintf(buf, PAGE_SIZE, "panel_power_on = %d\n",
+						panel_power_state);
+
+	return ret;
+}
+
+static ssize_t mdss_fb_set_ie_level(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	u32 ie_level;
+
+	if (sscanf(buf, "%d", &ie_level) != 1) {
+		pr_err("sccanf buf error!\n");
+		return len;
+	}
+
+	dsi_panel_set_ie_level(ie_level);
+
+	return len;
+}
+
+static ssize_t mdss_fb_get_ie_level(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	int sre_mode = 1;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", sre_mode);
+
+	return ret;
+}
+
+static DEVICE_ATTR(msm_fb_ie_level, S_IRUGO | S_IWUSR,
+	mdss_fb_get_ie_level, mdss_fb_set_ie_level);
+static DEVICE_ATTR(show_blank_event, S_IRUGO,
+	mdss_mdp_show_blank_event, NULL);
+
+static struct attribute *mdss_fb_attrs[] = {
+	&dev_attr_show_blank_event.attr,
+	&dev_attr_msm_fb_ie_level.attr,
+	NULL,
+};
+
+static struct attribute_group mdss_fb_attr_group = {
+	.attrs = mdss_fb_attrs,
+};
+#endif
 
 int dsi_panel_drv_init(struct dsi_panel *panel,
 		       struct mipi_dsi_host *host)
@@ -3058,6 +3211,12 @@ int dsi_panel_drv_init(struct dsi_panel *panel,
 		goto error_gpio_release;
 	}
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	rc = sysfs_create_group(&(panel->parent->kobj), &mdss_fb_attr_group);
+	if (rc)
+		pr_err("sysfs group creation failed, rc=%d\n", rc);
+#endif
+
 	goto exit;
 
 error_gpio_release:
@@ -3068,6 +3227,10 @@ error_vreg_put:
 	(void)dsi_panel_vreg_put(panel);
 exit:
 	mutex_unlock(&panel->panel_lock);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	set_panel = panel;
+	panel->panel_power_state = 1;
+#endif
 	return rc;
 }
 
@@ -3681,11 +3844,27 @@ int dsi_panel_enable(struct dsi_panel *panel)
 
 	mutex_lock(&panel->panel_lock);
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (select_display == 1) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_ON);
+		if (rc) {
+			pr_err("[%s] failed to send DSI_CMD_SET_ON cmds, rc=%d\n",
+			       panel->name, rc);
+		}
+	} else {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_ON_OLD);
+		if (rc) {
+			pr_err("[%s] failed to send DSI_CMD_SET_ON_OLD cmds, rc=%d\n",
+			       panel->name, rc);
+		}
+	}
+#else
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_ON);
 	if (rc) {
 		pr_err("[%s] failed to send DSI_CMD_SET_ON cmds, rc=%d\n",
 		       panel->name, rc);
 	}
+#endif
 	panel->panel_initialized = true;
 	mutex_unlock(&panel->panel_lock);
 	return rc;
