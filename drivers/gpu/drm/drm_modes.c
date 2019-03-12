@@ -1024,7 +1024,12 @@ drm_mode_validate_basic(const struct drm_display_mode *mode)
 	if (mode->hdisplay == 0 ||
 	    mode->hsync_start < mode->hdisplay ||
 	    mode->hsync_end < mode->hsync_start ||
+#ifdef CONFIG_VENDOR_SMARTISAN
+	    mode->htotal < mode->hsync_end ||
+	    mode->hdisplay > 2560)
+#else
 	    mode->htotal < mode->hsync_end)
+#endif
 		return MODE_H_ILLEGAL;
 
 	if (mode->vdisplay == 0 ||
