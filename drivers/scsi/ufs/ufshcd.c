@@ -7443,6 +7443,10 @@ static void ufshcd_set_active_icc_lvl(struct ufs_hba *hba)
 			__func__, icc_level, ret);
 }
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+extern char android_boot_dev[ANDROID_BOOT_DEV_MAX];
+#endif
+
 /**
  * ufshcd_scsi_add_wlus - Adds required W-LUs
  * @hba: per-adapter instance
@@ -7514,7 +7518,11 @@ static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 		scsi_device_put(sdev_boot);
 	}
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (is_embedded_dev && 0 == strcmp(android_boot_dev, dev_name(hba->dev))) {
+#else
 	if (is_embedded_dev) {
+#endif
 		sdev_rpmb = __scsi_add_device(hba->host, 0, 0,
 			ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_RPMB_WLUN),
 			NULL);
