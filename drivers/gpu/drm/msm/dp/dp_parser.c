@@ -226,6 +226,10 @@ static int dp_parser_gpio(struct dp_parser *parser)
 		"qcom,aux-en-gpio",
 		"qcom,aux-sel-gpio",
 		"qcom,usbplug-cc-gpio",
+#ifdef CONFIG_VENDOR_SMARTISAN
+		"qcom,mic-sel-gpio",
+		"qcom,uart-sel-gpio",
+#endif
 	};
 
 	mp->gpio_config = devm_kzalloc(dev,

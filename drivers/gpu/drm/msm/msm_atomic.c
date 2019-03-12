@@ -203,6 +203,11 @@ static void msm_atomic_wait_for_commit_done(
 	}
 }
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+#define DSI_ENCODER_NAME "DSI-"
+bool touch_needed = false;
+#endif
+
 static void
 msm_disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 {
@@ -250,6 +255,11 @@ msm_disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 
 		DRM_DEBUG_ATOMIC("disabling [ENCODER:%d:%s]\n",
 				 encoder->base.id, encoder->name);
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+		if (encoder->name && !strncmp(encoder->name, DSI_ENCODER_NAME, 4))
+			touch_needed = true;
+#endif
 
 		blank = MSM_DRM_BLANK_POWERDOWN;
 		notifier_data.data = &blank;
@@ -517,6 +527,11 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 			continue;
 
 		encoder = connector->state->best_encoder;
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+		if (encoder->name && !strncmp(encoder->name, DSI_ENCODER_NAME, 4))
+			touch_needed = true;
+#endif
 
 		DRM_DEBUG_ATOMIC("bridge enable enabling [ENCODER:%d:%s]\n",
 				 encoder->base.id, encoder->name);

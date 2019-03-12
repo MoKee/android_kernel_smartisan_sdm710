@@ -1371,6 +1371,25 @@ static int dp_display_create_workqueue(struct dp_display_private *dp)
 	return 0;
 }
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+static ssize_t connected_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+	struct dp_display_private *dp = dev_get_drvdata(dev);
+	if (dp)
+		len = snprintf(buf, SZ_8, "%d\n", dp->usbpd->hpd_high);
+	return len;
+}
+
+static DEVICE_ATTR(connected, 0444, connected_show, NULL);
+
+static const struct attribute *usb_dp_attrs[] = {
+	&dev_attr_connected.attr,
+	NULL,
+};
+#endif
+
 static int dp_display_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -1426,6 +1445,13 @@ static int dp_display_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	rc = sysfs_create_files(&((pdev->dev).kobj),
+			usb_dp_attrs);
+	if (rc)
+		pr_err("create usb dp sysfs failed\n");
+#endif
+
 	return 0;
 error:
 	devm_kfree(&pdev->dev, dp);
@@ -1465,6 +1491,10 @@ static int dp_display_remove(struct platform_device *pdev)
 		return -EINVAL;
 
 	dp = platform_get_drvdata(pdev);
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	sysfs_remove_files(&((pdev->dev).kobj), usb_dp_attrs);
+#endif
 
 	dp_display_deinit_sub_modules(dp);
 

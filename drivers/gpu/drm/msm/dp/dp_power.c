@@ -19,6 +19,11 @@
 
 #define DP_CLIENT_NAME_SIZE	20
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+static int uart_init_state;
+static int mic_init_state;
+#endif
+
 struct dp_power_private {
 	struct dp_parser *parser;
 	struct platform_device *pdev;
@@ -370,8 +375,23 @@ static void dp_power_set_gpio(struct dp_power_private *power, bool flip)
 			pr_debug("gpio %s, value %d\n", config->gpio_name,
 				config->value);
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+			if (dp_power_find_gpio(config->gpio_name, "uart-sel")) {
+				uart_init_state = gpio_get_value(config->gpio);
+				pr_info("%s:init state=%d, disable uart\n", __func__, uart_init_state);
+				gpio_direction_output(config->gpio, 0);
+			} else if (dp_power_find_gpio(config->gpio_name, "mic-sel")) {
+				mic_init_state = gpio_get_value(config->gpio);
+				pr_info("%s:init state=%d, disable mic\n", __func__, mic_init_state);
+				gpio_direction_output(config->gpio, 0);
+			}
+			else if (dp_power_find_gpio(config->gpio_name, "aux-en"))
+				gpio_direction_output(config->gpio, 1);
+			else if (dp_power_find_gpio(config->gpio_name, "aux-sel"))
+#else
 			if (dp_power_find_gpio(config->gpio_name, "aux-en") ||
 			    dp_power_find_gpio(config->gpio_name, "aux-sel"))
+#endif
 				gpio_direction_output(config->gpio,
 					config->value);
 			else
@@ -402,6 +422,15 @@ static int dp_power_config_gpios(struct dp_power_private *power, bool flip,
 		dp_power_set_gpio(power, flip);
 	} else {
 		for (i = 0; i < mp->num_gpio; i++) {
+#ifdef CONFIG_VENDOR_SMARTISAN
+			if (dp_power_find_gpio(config[i].gpio_name, "uart-sel")) {
+				gpio_direction_output(config[i].gpio, uart_init_state);
+				continue;
+			} else if (dp_power_find_gpio(config[i].gpio_name, "mic-sel")) {
+				gpio_direction_output(config[i].gpio, mic_init_state);
+				continue;
+			}
+#endif
 			gpio_set_value(config[i].gpio, 0);
 			gpio_free(config[i].gpio);
 		}
