@@ -2606,6 +2606,11 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 	pon->legacy_hard_reset_offset = of_property_read_bool(pdev->dev.of_node,
 					"qcom,use-legacy-hard-reset-offset");
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	/* Determine volum_up initial status */
+	qpnp_pon_input_dispatch(pon, PON_RESIN);
+#endif
+
 	qpnp_pon_debugfs_init(pdev);
 	return 0;
 
