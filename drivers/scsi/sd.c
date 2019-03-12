@@ -70,6 +70,10 @@
 #include "scsi_priv.h"
 #include "scsi_logging.h"
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+#include "ufs/ufshcd.h"
+#endif
+
 MODULE_AUTHOR("Eric Youngdale");
 MODULE_DESCRIPTION("SCSI disk (sd) driver");
 MODULE_LICENSE("GPL");
@@ -3034,6 +3038,14 @@ static int sd_probe(struct device *dev)
 	struct gendisk *gd;
 	int index;
 	int error;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	int u_index;
+	static int u1_idx = 0;
+	static int u2_idx = 0;
+	char *prefix = "";
+	struct Scsi_Host *shost = sdp->host;
+	struct scsi_host_template *sht = shost->hostt;
+#endif
 
 	scsi_autopm_get_device(sdp);
 	error = -ENODEV;
@@ -3066,7 +3078,18 @@ static int sd_probe(struct device *dev)
 		goto out_put;
 	}
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (!strcmp(sht->name, UFSHCD)) {
+		u_index = u2_idx++;
+		prefix = "su";
+	} else {
+		u_index = u1_idx++;
+		prefix = "sd";
+	}
+	error = sd_format_disk_name(prefix, u_index, gd->disk_name, DISK_NAME_LEN);
+#else
 	error = sd_format_disk_name("sd", index, gd->disk_name, DISK_NAME_LEN);
+#endif
 	if (error) {
 		sdev_printk(KERN_WARNING, sdp, "SCSI disk (sd) name length exceeded.\n");
 		goto out_free_index;
