@@ -62,6 +62,10 @@ static const struct of_device_id dsi_display_dt_match[] = {
 static struct dsi_display *primary_display;
 static struct dsi_display *secondary_display;
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+int select_display;
+#endif
+
 static void dsi_display_mask_ctrl_error_interrupts(struct dsi_display *display,
 			u32 mask, bool enable)
 {
@@ -4753,7 +4757,11 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 		display->name = "unknown";
 
 	if (!boot_displays_parsed) {
+#ifdef CONFIG_VENDOR_SMARTISAN
+		boot_displays[DSI_PRIMARY].boot_disp_en = true;
+#else
 		boot_displays[DSI_PRIMARY].boot_disp_en = false;
+#endif
 		boot_displays[DSI_SECONDARY].boot_disp_en = false;
 		if (dsi_display_parse_boot_display_selection())
 			pr_debug("Display Boot param not valid/available\n");
@@ -4768,6 +4776,9 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	if (boot_displays[DSI_PRIMARY].boot_disp_en && !primary_np &&
 		dsi_display_name_compare(pdev->dev.of_node,
 			display->name, DSI_PRIMARY)) {
+#ifdef CONFIG_VENDOR_SMARTISAN
+		select_display = 1;
+#endif
 		if (primary_display) {
 			(void)_dsi_display_dev_deinit(primary_display);
 			component_del(&primary_display->pdev->dev,
@@ -6380,6 +6391,14 @@ error_disable_panel:
 error:
 	mutex_unlock(&display->display_lock);
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (!display->panel) {
+		pr_err("Invalid params\n");
+		rc = -EINVAL;
+	} else {
+		display->panel->panel_power_state = 1;
+	}
+#endif
 	return rc;
 }
 
@@ -6441,6 +6460,15 @@ int dsi_display_disable(struct dsi_display *display)
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (!display->panel) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	} else {
+		display->panel->panel_power_state = 0;
+	}
+#endif
 
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
 	mutex_lock(&display->display_lock);
