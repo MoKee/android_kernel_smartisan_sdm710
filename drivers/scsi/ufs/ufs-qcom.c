@@ -34,6 +34,10 @@
 #include "ufs-qcom-debugfs.h"
 #include <linux/clk/qcom.h>
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+#include <smartisan/hwinfo.h>
+#endif
+
 #define MAX_PROP_SIZE		   32
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
@@ -2003,8 +2007,12 @@ static void ufs_qcom_pm_qos_remove(struct ufs_qcom_host *host)
 }
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+char android_boot_dev[ANDROID_BOOT_DEV_MAX];
+#else
 #define	ANDROID_BOOT_DEV_MAX	30
 static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
+#endif
 
 #ifndef MODULE
 static int __init get_android_boot_dev(char *str)
@@ -2743,7 +2751,9 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 {
 	int err;
 	struct device *dev = &pdev->dev;
+#ifndef CONFIG_VENDOR_SMARTISAN
 	struct device_node *np = dev->of_node;
+#endif
 
 	/*
 	 * On qcom platforms, bootdevice is the primary storage
@@ -2757,10 +2767,19 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	 * Hence, check for the connected device early-on & don't turn-off
 	 * the regulators.
 	 */
+#ifndef CONFIG_VENDOR_SMARTISAN
 	if (of_property_read_bool(np, "non-removable") &&
 	    !of_property_read_bool(np, "force-ufshc-probe") &&
 	    strcmp(android_boot_dev, dev_name(dev)))
 		return -ENODEV;
+#endif
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (get_ufs2_support() == 0) {
+		dev_err(dev, "ufshcd_pltfrm_init() no ufs\n");
+		return -ENODEV;
+	}
+#endif
 
 	/* Perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_qcom_variant);
