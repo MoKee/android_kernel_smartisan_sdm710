@@ -148,6 +148,16 @@ struct msm_ssphy_qmp {
 	int			reg_offset_cnt;
 };
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+unsigned int ssphy_pcs_txmgn_v0;
+module_param(ssphy_pcs_txmgn_v0, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(ssphy_pcs_txmgn_v0, "SSUSB QMP PHY TXMGN V0");
+
+unsigned int ssphy_txdeemph_m3p5db_v0;
+module_param(ssphy_txdeemph_m3p5db_v0, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(ssphy_txdeemph_m3p5db_v0, "SSUSB QMP PHY TXDEEMPH M3P5DB V0");
+#endif
+
 static const struct of_device_id msm_usb_id_table[] = {
 	{
 		.compatible = "qcom,usb-ssphy-qmp",
@@ -378,6 +388,29 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 	usb_qmp_powerup_phy(phy);
 
 	switch (phy->phy.type) {
+#ifdef CONFIG_VENDOR_SMARTISAN
+	case USB_PHY_TYPE_DP:
+		/* override hardware control for reset of qmp phy */
+		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
+			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
+			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+
+		/* update port select */
+		if (val > 0) {
+			dev_err(phy->phy.dev,
+				"USB DP QMP PHY: Update TYPEC CTRL(%d)\n", val);
+			writel_relaxed(val, phy->base +
+				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
+		}
+
+		writel_relaxed(DP_MODE,
+			phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
+
+		/* bring both QMP USB and QMP DP PHYs PCS block out of reset */
+		writel_relaxed(0x00,
+			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		break;
+#endif
 	case USB_PHY_TYPE_USB3_AND_DP:
 		/* override hardware control for reset of qmp phy */
 		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE)) {
@@ -493,6 +526,22 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		dev_err(uphy->dev, "Failed the main PHY configuration\n");
 		return ret;
 	}
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (ssphy_pcs_txmgn_v0) {
+		pr_err("%s(): (modparam) ssphy_pcs_txmgn_v0 set val:0x%02x\n",
+				__func__, ssphy_pcs_txmgn_v0);
+		writel_relaxed(ssphy_pcs_txmgn_v0,
+				phy->base + 0x1c0c);
+	}
+
+	if (ssphy_txdeemph_m3p5db_v0) {
+		pr_info("%s(): (modparam) ssphy_txdeemph_m3p5db_v0 set val:0x%02x\n",
+				__func__, ssphy_txdeemph_m3p5db_v0);
+		writel_relaxed(ssphy_txdeemph_m3p5db_v0,
+				phy->base + 0x1c0c+4*7);
+	}
+#endif
 
 	/* perform software reset of PHY common logic */
 	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP &&

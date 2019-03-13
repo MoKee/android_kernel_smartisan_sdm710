@@ -2556,6 +2556,9 @@ static void usbpd_sm(struct work_struct *w)
 		break;
 
 	case PE_SNK_TRANSITION_SINK:
+#ifdef CONFIG_VENDOR_SMARTISAN
+		pd->sm_queued = true;
+#endif
 		if (IS_CTRL(rx_msg, MSG_PS_RDY)) {
 			val.intval = pd->requested_voltage;
 			power_supply_set_property(pd->usb_psy,
@@ -2577,6 +2580,9 @@ static void usbpd_sm(struct work_struct *w)
 		break;
 
 	case PE_SNK_READY:
+#ifdef CONFIG_VENDOR_SMARTISAN
+		pd->sm_queued = true;
+#endif
 		if (IS_DATA(rx_msg, MSG_SOURCE_CAPABILITIES)) {
 			/* save the PDOs so userspace can further evaluate */
 			memset(&pd->received_pdos, 0,

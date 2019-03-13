@@ -77,6 +77,12 @@ module_param(dwc3_gadget_imod_val, int, 0644);
 MODULE_PARM_DESC(dwc3_gadget_imod_val,
 			"Interrupt moderation in usecs for normal EPs");
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+static int ssphy_type_dp_only;
+module_param(ssphy_type_dp_only, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(ssphy_type_dp_only, "SSPHY SUPPORT DP ONLY");
+#endif
+
 /* XHCI registers */
 #define USB3_HCSPARAMS1		(0x4)
 #define USB3_HCCPARAMS2		(0x1c)
@@ -2593,7 +2599,11 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool hibernation)
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
 
 	/* Suspend SS PHY */
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (dwc->maximum_speed == USB_SPEED_SUPER || ssphy_type_dp_only) {
+#else
 	if (dwc->maximum_speed == USB_SPEED_SUPER) {
+#endif
 		if (mdwc->in_host_mode) {
 			u32 reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
 
@@ -2710,6 +2720,13 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	struct usb_irq *uirq;
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (ssphy_type_dp_only == 1)
+		mdwc->ss_phy->type = USB_PHY_TYPE_DP;
+	else
+		mdwc->ss_phy->type = USB_PHY_TYPE_USB3_AND_DP;
+#endif
 
 	/*
 	 * If h/w exited LPM without any events, ensure
@@ -3968,6 +3985,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_ext_event_notify(mdwc);
 	}
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	ssphy_type_dp_only = 1;
+#endif
+
 	return 0;
 
 put_psy:
@@ -4534,7 +4555,11 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 	psy_type = get_psy_type(mdwc);
 	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
 		if (!mA)
+#ifdef CONFIG_VENDOR_SMARTISAN
+			pval.intval = 1000000;
+#else
 			pval.intval = -ETIMEDOUT;
+#endif
 		else
 			pval.intval = 1000 * mA;
 		goto set_prop;
