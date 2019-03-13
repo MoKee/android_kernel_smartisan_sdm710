@@ -78,7 +78,9 @@
 		regulator-max-microvolt = <1800000>;
 		regulator-enable-ramp-delay = <233>;
 		enable-active-high;
+#ifndef CONFIG_VENDOR_SMARTISAN
 		gpio = <&tlmm 29 0>;
+#endif
 		vin-supply = <&pm660_s4>;
 	};
 
