@@ -29,6 +29,9 @@
 #include <linux/nvmem-consumer.h>
 #include <linux/debugfs.h>
 #include <linux/hrtimer.h>
+#ifdef CONFIG_VENDOR_SMARTISAN
+#include <soc/qcom/socinfo.h>
+#endif
 
 /* QUSB2PHY_PWR_CTRL1 register related bits */
 #define PWR_CTRL1_POWR_DOWN		BIT(0)
@@ -66,7 +69,12 @@
 #define LINESTATE_DP			BIT(0)
 #define LINESTATE_DM			BIT(1)
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+#define BIAS_CTRL_2_OVERRIDE_VAL	0x19
+#define HOST_BIAS_CTRL_2_OVERRIDE_VAL	0x21
+#else
 #define BIAS_CTRL_2_OVERRIDE_VAL	0x28
+#endif
 
 #define SQ_CTRL1_CHIRP_DISABLE		0x20
 #define SQ_CTRL2_CHIRP_DISABLE		0x80
@@ -81,6 +89,12 @@
 
 /* STAT5 register bits */
 #define VSTATUS_PLL_LOCK_STATUS_MASK	BIT(0)
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+unsigned int ssphy_pcs_txmgn_bias2;
+module_param(ssphy_pcs_txmgn_bias2, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(ssphy_pcs_txmgn_bias2, "SSUSB QMP PHY TXMGN V0");
+#endif
 
 enum qusb_phy_reg {
 	PORT_TUNE1,
@@ -539,8 +553,13 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 
 	if (qphy->refgen_north_bg_reg && qphy->override_bias_ctrl2)
 		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
+#ifdef CONFIG_VENDOR_SMARTISAN
+			writel_relaxed(HOST_BIAS_CTRL_2_OVERRIDE_VAL,
+				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+#else
 			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
 				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+#endif
 
 	if (qphy->bias_ctrl2)
 		writel_relaxed(qphy->bias_ctrl2,
@@ -615,8 +634,19 @@ static int qusb_phy_init(struct usb_phy *phy)
 		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
 				qphy->init_seq_len, 0);
 	if (qphy->efuse_reg) {
+#ifdef CONFIG_VENDOR_SMARTISAN
+		enum msm_cpu cpu_id = socinfo_get_msm_cpu();
+#endif
+
 		if (!qphy->tune_val)
 			qusb_phy_get_tune1_param(qphy);
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+		if (cpu_id == MSM_CPU_SDM710)
+			qphy->tune_val = 0x47;
+		else
+			qphy->tune_val = 0x57;
+#endif
 
 		pr_debug("%s(): Programming TUNE1 parameter as:%x\n", __func__,
 				qphy->tune_val);
@@ -640,6 +670,12 @@ static int qusb_phy_init(struct usb_phy *phy)
 	if (qphy->bias_ctrl2)
 		writel_relaxed(qphy->bias_ctrl2,
 				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (ssphy_pcs_txmgn_bias2)
+		writel_relaxed(ssphy_pcs_txmgn_bias2,
+				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+#endif
 
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
