@@ -12,6 +12,8 @@
 
 /dts-v1/;
 
+#define CONFIG_VENDOR_SMARTISAN
+
 #include "sdm670.dtsi"
 
 / {

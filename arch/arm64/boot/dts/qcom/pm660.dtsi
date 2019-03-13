@@ -55,7 +55,11 @@
 			qcom,pon_2 {
 				qcom,pon-type = <1>;
 				qcom,pull-up = <1>;
+#ifdef CONFIG_VENDOR_SMARTISAN
+				linux,code = <115>;
+#else
 				linux,code = <114>;
+#endif
 			};
 		};
 
