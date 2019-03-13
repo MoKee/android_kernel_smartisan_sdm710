@@ -6439,6 +6439,10 @@ int dsi_display_unprepare(struct dsi_display *display)
 	mutex_unlock(&display->display_lock);
 	return rc;
 }
+struct dsi_display *get_main_display(void) {
+		return primary_display;
+}
+EXPORT_SYMBOL(get_main_display);
 
 static int __init dsi_display_register(void)
 {
