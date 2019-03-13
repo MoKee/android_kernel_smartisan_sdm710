@@ -115,6 +115,11 @@ dtb-$(CONFIG_ARCH_SDM845) += sdm845-sim.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+ifdef CONFIG_VENDOR_SMARTISAN
+	dtbo-$(CONFIG_ARCH_SDM670) += \
+		ocean-sdm670-pm660a-mtp-overlay.dtbo \
+		ocean-sdm710-pm660a-mtp-overlay.dtbo
+else
 	dtbo-$(CONFIG_ARCH_SDM670) += \
 		sdm670-cdp-overlay.dtbo \
 		sdm670-mtp-overlay.dtbo \
@@ -189,7 +194,12 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sxr1130-usbc-mtp-overlay.dtbo \
 		sxr1130-usbc-pm660a-mtp-overlay.dtbo \
 		sxr1130-qrd-overlay.dtbo
+endif
 
+ifdef CONFIG_VENDOR_SMARTISAN
+ocean-sdm670-pm660a-mtp-overlay.dtbo-base := sdm670.dtb
+ocean-sdm710-pm660a-mtp-overlay.dtbo-base := sdm710.dtb
+endif
 sdm670-cdp-overlay.dtbo-base := sdm670.dtb
 sdm670-mtp-overlay.dtbo-base := sdm670.dtb
 sdm670-rumi-overlay.dtbo-base := sdm670.dtb

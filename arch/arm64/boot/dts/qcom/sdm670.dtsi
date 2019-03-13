@@ -34,9 +34,15 @@
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+#ifndef CONFIG_VENDOR_SMARTISAN
+		/* QUPV3 SPI use*/
 		sdhc2 = &sdhc_2; /* SDC2 SD Card slot */
+#endif
 		serial0 = &qupv3_se12_2uart;
 		spi0 = &qupv3_se8_spi;
+#ifdef CONFIG_VENDOR_SMARTISAN
+		spi1 = &qupv3_se7_spi;
+#endif
 		i2c0 = &qupv3_se10_i2c;
 		i2c1 = &qupv3_se3_i2c;
 		hsuart0 = &qupv3_se6_4uart;
@@ -462,9 +468,23 @@
 					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
+#ifdef CONFIG_VENDOR_SMARTISAN
+					fsmgr_flags = "wait,avb";
+#else
 					fsmgr_flags = "wait,slotselect,avb";
+#endif
 					status = "ok";
 				};
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+				system {
+					compatible = "android,system";
+					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/system";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,avb";
+				};
+#endif
 			};
 		};
 	};
@@ -489,7 +509,11 @@
 		removed_region: removed_region@85fc0000 {
 			compatible = "removed-dma-pool";
 			no-map;
+#ifdef CONFIG_VENDOR_SMARTISAN
+			reg = <0 0x85fc0000 0 0x4140000>;
+#else
 			reg = <0 0x85fc0000 0 0x2f40000>;
+#endif
 		};
 
 		pil_camera_mem: camera_region@8ab00000 {
@@ -868,13 +892,19 @@
 		compatible = "qcom,qbt1000";
 		clock-names = "core", "iface";
 		clock-frequency = <25000000>;
+#ifndef CONFIG_VENDOR_SMARTISAN
 		qcom,ipc-gpio = <&tlmm 121 0>;
+#endif
 		qcom,finger-detect-gpio = <&tlmm 122 0>;
 	};
 
 	qcom_seecom: qseecom@86d00000 {
 		compatible = "qcom,qseecom";
+#ifdef CONFIG_VENDOR_SMARTISAN
+		reg = <0x86d00000 0x3400000>;
+#else
 		reg = <0x86d00000 0x2200000>;
+#endif
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -1878,7 +1908,11 @@
 		ufs-qcom-crypto = <&ufs_ice>;
 
 		lanes-per-direction = <1>;
+#ifdef CONFIG_VENDOR_SMARTISAN
+		spm-level = <3>;
+#else
 		spm-level = <5>;
+#endif
 		dev-ref-clk-freq = <0>; /* 19.2 MHz */
 
 		clock-names =
