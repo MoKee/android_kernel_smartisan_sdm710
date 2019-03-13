@@ -1013,6 +1013,9 @@
 					pins = "gpio51", "gpio52";
 					drive-strength = <2>;
 					bias-pull-down;
+#ifdef CONFIG_VENDOR_SMARTISAN
+					input-enable;
+#endif
 				};
 			};
 		};
@@ -1762,6 +1765,7 @@
 			};
 		};
 
+#ifndef CONFIG_VENDOR_SMARTISAN
 		flash_led3_front {
 			flash_led3_front_en: flash_led3_front_en {
 				mux {
@@ -1791,7 +1795,20 @@
 				};
 			};
 		};
+#endif
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+		/* Pinctrl setting for SMART GPIO key */
+		key_smart {
+			key_smart_default: key_smart_default {
+				pins = "gpio91";
+				function = "normal";
+				input-enable;
+				bias-pull-up;
+				power-source = <0>;
+			};
+		};
+#else
 		/* Pinctrl setting for CAMERA GPIO key */
 		key_cam_snapshot {
 			key_cam_snapshot_default: key_cam_snapshot_default {
@@ -1812,6 +1829,7 @@
 				power-source = <0>;
 			};
 		};
+#endif
 
 		aqt_intr {
 			aqt_intr_default: aqt_intr_default{
@@ -1994,14 +2012,40 @@
 			};
 		};
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+		disable_uart_set {
+			gpio51_52_set: gpio51_52_set {
+				mux {
+					pins = "gpio51", "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio51", "gpio52";
+					drive-strength = <2>;
+					bias-pull-down;
+					input-enable;
+				};
+			};
+		};
+#endif
+
 		sde_dp_aux_active: sde_dp_aux_active {
 			mux {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio40";
+#else
 				pins = "gpio40", "gpio50";
+#endif
 				function = "gpio";
 			};
 
 			config {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio40";
+#else
 				pins = "gpio40", "gpio50";
+#endif
 				bias-disable = <0>; /* no pull */
 				drive-strength = <8>;
 			};
@@ -2009,12 +2053,20 @@
 
 		sde_dp_aux_suspend: sde_dp_aux_suspend {
 			mux {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio40";
+#else
 				pins = "gpio40", "gpio50";
+#endif
 				function = "gpio";
 			};
 
 			config {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio40";
+#else
 				pins = "gpio40", "gpio50";
+#endif
 				bias-pull-down;
 				drive-strength = <2>;
 			};
@@ -2134,12 +2186,20 @@
 		cam_sensor_rear_vana: cam_sensor_rear_vana {
 			/*  AVDD LDO */
 			mux {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "";
+#else
 				pins = "gpio8";
+#endif
 				function = "gpio";
 			};
 
 			config {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "";
+#else
 				pins = "gpio8";
+#endif
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -2148,12 +2208,20 @@
 		cam_sensor_rear_vio: cam_sensor_rear_vio {
 			/* DOVDD LDO */
 			mux {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "";
+#else
 				pins = "gpio29";
+#endif
 				function = "gpio";
 			};
 
 			config {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "";
+#else
 				pins = "gpio29";
+#endif
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -2219,12 +2287,20 @@
 		cam_sensor_rear2_active: cam_sensor_rear2_active {
 			/* RESET */
 			mux {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio23";
+#else
 				pins = "gpio28";
+#endif
 				function = "gpio";
 			};
 
 			config {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio23";
+#else
 				pins = "gpio28";
+#endif
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -2233,12 +2309,20 @@
 		cam_sensor_rear2_suspend: cam_sensor_rear2_suspend {
 			/* RESET */
 			mux {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio23";
+#else
 				pins = "gpio28";
+#endif
 				function = "gpio";
 			};
 
 			config {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio23";
+#else
 				pins = "gpio28";
+#endif
 				bias-pull-down; /* PULL DOWN */
 				drive-strength = <2>; /* 2 MA */
 				output-low;
@@ -2248,12 +2332,20 @@
 		cam_sensor_mclk1_active: cam_sensor_mclk1_active {
 			/* MCLK1 */
 			mux {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio16";
+#else
 				pins = "gpio14";
+#endif
 				function = "cam_mclk";
 			};
 
 			config {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio16";
+#else
 				pins = "gpio14";
+#endif
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -2262,12 +2354,20 @@
 		cam_sensor_mclk1_suspend: cam_sensor_mclk1_suspend {
 			/* MCLK1 */
 			mux {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio16";
+#else
 				pins = "gpio14";
+#endif
 				function = "cam_mclk";
 			};
 
 			config {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				pins = "gpio16";
+#else
 				pins = "gpio14";
+#endif
 				bias-pull-down; /* PULL DOWN */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -2345,6 +2445,84 @@
 				input-enable;
 			};
 		};
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+		/* add pingrp for touchscreen */
+		pmx_ts_int_active {
+			ts_int_active: ts_int_active {
+				mux {
+					pins = "gpio125", "gpio25";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio125", "gpio25";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_int_suspend {
+			ts_int_suspend: ts_int_suspend {
+				mux {
+					pins = "gpio125", "gpio25";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio125", "gpio25";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_reset_active {
+			ts_reset_active: ts_reset_active {
+				mux {
+					pins = "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio99";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			ts_reset_suspend: ts_reset_suspend {
+				mux {
+					pins = "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio99";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pmx_ts_release {
+			ts_release: ts_release {
+				mux {
+					pins = "gpio99", "gpio125", "gpio25";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio99", "gpio125", "gpio25";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+#endif
 	};
 };
 
@@ -2396,6 +2574,17 @@
 		output-low;
 	};
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	key_vol_dn {
+		key_vol_dn_default: key_vol_dn_default {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <0>;
+		};
+	};
+#else
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
 			pins = "gpio7";
@@ -2405,6 +2594,7 @@
 			power-source = <0>;
 		};
 	};
+#endif
 };
 
 &pm660_gpios {

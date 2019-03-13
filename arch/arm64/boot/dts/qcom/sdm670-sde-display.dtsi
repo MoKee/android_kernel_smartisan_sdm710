@@ -30,6 +30,9 @@
 #include "dsi-panel-nt36850-truly-dualmipi-wqhd-cmd.dtsi"
 #include "dsi-panel-hx8399-truly-singlemipi-fhd-video.dtsi"
 #include "dsi-panel-hx83112a-truly-singlemipi-fhd-video.dtsi"
+#ifdef CONFIG_VENDOR_SMARTISAN
+#include "dsi-panel-rm69298-1080p-cmd.dtsi"
+#endif
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
@@ -127,9 +130,36 @@
 			qcom,supply-max-voltage = <3300000>;
 			qcom,supply-enable-load = <13200>;
 			qcom,supply-disable-load = <80>;
+#ifdef CONFIG_VENDOR_SMARTISAN
+			qcom,supply-post-on-sleep = <11>;
+#endif
 		};
 	};
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	dsi_rm69298_amoled_fhd_cmd_display: qcom,dsi-display@0 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_rm69298_amoled_fhd_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		pinctrl-names = "panel_active", "panel_suspend","gpio51_52_set";
+		pinctrl-0 = <&sde_dsi_active &sde_te_active>;
+		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
+		pinctrl-2 = <&gpio51_52_set>;
+		qcom,platform-te-gpio = <&tlmm 10 0>;
+		qcom,platform-reset-gpio = <&tlmm 75 0>;
+
+		qcom,dsi-panel = <&dsi_rm6928_1080_cmd>;
+		vddio-supply = <&pm660_l11>;
+		vdda-3p3-supply = <&pm660l_l6>;
+	};
+#else
 	dsi_dual_nt35597_truly_video_display: qcom,dsi-display@0 {
 		compatible = "qcom,dsi-display";
 		label = "dsi_dual_nt35597_truly_video_display";
@@ -537,6 +567,7 @@
 			};
 		};
 	};
+#endif
 
 	dsi_sharp_1080_cmd_display: qcom,dsi-display@19 {
 		compatible = "qcom,dsi-display";
@@ -609,8 +640,15 @@
 	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
 	pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
 	pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	qcom,aux-en-gpio = <&tlmm 26 0>;
+	qcom,aux-sel-gpio = <&tlmm 29 0>;
+	qcom,mic-sel-gpio = <&pm660l_gpios 2 0>; /*mic_switch*/
+	qcom,uart-sel-gpio = <&tlmm 2 0>;
+#else
 	qcom,aux-en-gpio = <&tlmm 50 0>;
 	qcom,aux-sel-gpio = <&tlmm 40 0>;
+#endif
 	qcom,usbplug-cc-gpio = <&tlmm 38 0>;
 };
 
@@ -1036,3 +1074,18 @@
 		};
 	};
 };
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+&dsi_rm6928_1080_cmd {
+	qcom,mdss-dsi-t-clk-post = <0x14>;
+	qcom,mdss-dsi-t-clk-pre = <0x51>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 21 08 08 25 22 09
+				08 06 03 04 00];
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+#endif
