@@ -37,7 +37,9 @@
 		qcom,thermal-mitigation
 				= <3000000 2500000 2000000 1500000
 					1000000 500000>;
+#ifndef CONFIG_VENDOR_SMARTISAN
 		qcom,auto-recharge-soc;
+#endif
 
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
@@ -182,8 +184,10 @@
 		qcom,fg-esr-timer-charging = <0 96>;
 		qcom,cycle-counter-en;
 		qcom,hold-soc-while-full;
+#ifndef CONFIG_VENDOR_SMARTISAN
 		qcom,fg-auto-recharge-soc;
 		qcom,fg-recharge-soc-thr = <98>;
+#endif
 		status = "okay";
 
 		qcom,fg-batt-soc@4000 {
