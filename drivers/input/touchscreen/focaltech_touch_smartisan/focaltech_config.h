@@ -163,7 +163,7 @@
 
 #define FTS_X_Y_AREA_SUPPORT                    1
 
-#define FTS_KEY_LONG_PRESS_SUPPORT              1
+#define FTS_KEY_LONG_PRESS_SUPPORT              0
 
 /*
  * Nodes for tools, please keep enable
