@@ -18,7 +18,11 @@
 
 #include <asm/cachetype.h>
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+#define L1_CACHE_SHIFT		6
+#else
 #define L1_CACHE_SHIFT		7
+#endif
 #define L1_CACHE_BYTES		(1 << L1_CACHE_SHIFT)
 
 /*
