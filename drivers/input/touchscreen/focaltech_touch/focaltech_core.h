@@ -170,6 +170,10 @@ struct fts_ts_data {
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
     struct early_suspend early_suspend;
 #endif
+
+    struct proc_dir_entry *key_proc;
+    bool key_enable;
+    bool key_swap;
 };
 
 /*****************************************************************************
