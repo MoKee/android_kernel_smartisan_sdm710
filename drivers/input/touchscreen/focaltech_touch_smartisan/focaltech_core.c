@@ -40,6 +40,8 @@
 #include <linux/earlysuspend.h>
 #define FTS_SUSPEND_LEVEL 1     /* Early-suspend level */
 #endif
+#include <asm/uaccess.h>
+#include <linux/proc_fs.h>
 //#0244395 bsp madan@smartisan.com add to support aging test begin.
 #include <smartisan/hwstate.h>
 //#0244395 bsp madan@smartisan.com add to support aging test end.
@@ -624,6 +626,7 @@ static void fts_release_all_finger(void)
 static int fts_input_report_key(struct fts_ts_data *data, int index)
 {
     u32 ik;
+    u32 key_code;
     int id = data->events[index].id;
     int x = data->events[index].x;
     int y = data->events[index].y;
@@ -633,15 +636,25 @@ static int fts_input_report_key(struct fts_ts_data *data, int index)
     if (!KEY_EN(data)) {
         return -EINVAL;
     }
+
+    if (!data->key_enable) {
+        return 0;
+    }
+
     for (ik = 0; ik < key_num; ik++) {
         if (TOUCH_IN_KEY(x, data->pdata->key_x_coords[ik])) {
+            if (data->key_swap) {
+                key_code = data->pdata->keys[key_num - 1 - ik];
+            } else {
+                key_code = data->pdata->keys[ik];
+            }
             if (EVENT_DOWN(flag)) {
                 data->key_down = true;
-                input_report_key(data->input_dev, data->pdata->keys[ik], 1);
+                input_report_key(data->input_dev, key_code, 1);
                 FTS_DEBUG("Key%d(%d, %d) DOWN!", ik, x, y);
             } else {
                 data->key_down = false;
-                input_report_key(data->input_dev, data->pdata->keys[ik], 0);
+                input_report_key(data->input_dev, key_code, 0);
                 FTS_DEBUG("Key%d(%d, %d) Up!", ik, x, y);
             }
             return 0;
@@ -1417,6 +1430,80 @@ static int get_tp_ic_info(struct device *dev)
     return tp_state2_value;
 }
 
+static ssize_t fts_ts_key_enable_set(struct file *file,
+            const char __user *buf, size_t count, loff_t *lo)
+{
+    char page[10] = {0};
+    int rc, val;
+
+    rc = copy_from_user(page, buf, count);
+    if (rc) {
+        return -EINVAL;
+    }
+
+    rc = kstrtoint(page, 10, &val);
+    if (rc)
+        return -EINVAL;
+
+    fts_data->key_enable = !!val;
+
+    return count;
+}
+
+static ssize_t fts_ts_key_enable_get(struct file *file,
+            char __user *buf, size_t count, loff_t *lo)
+{
+    char page[10];
+
+    sprintf(page, "%d\n", fts_data->key_enable ? 1 : 0);
+
+    return simple_read_from_buffer(buf, count, lo, page, strlen(page));
+}
+
+static const struct file_operations proc_key_enable = {
+    .write = fts_ts_key_enable_set,
+    .read = fts_ts_key_enable_get,
+    .open = simple_open,
+    .owner = THIS_MODULE,
+};
+
+static ssize_t fts_ts_key_swap_set(struct file *file,
+            const char __user *buf, size_t count, loff_t *lo)
+{
+    char page[10] = {0};
+    int rc, val;
+
+    rc = copy_from_user(page, buf, count);
+    if (rc) {
+        return -EINVAL;
+    }
+
+    rc = kstrtoint(page, 10, &val);
+    if (rc)
+        return -EINVAL;
+
+    fts_data->key_swap = !!val;
+
+    return count;
+}
+
+static ssize_t fts_ts_key_swap_get(struct file *file,
+            char __user *buf, size_t count, loff_t *lo)
+{
+    char page[10];
+
+    sprintf(page, "%d\n", fts_data->key_swap ? 1 : 0);
+
+    return simple_read_from_buffer(buf, count, lo, page, strlen(page));
+}
+
+static const struct file_operations proc_key_swap = {
+    .write = fts_ts_key_swap_set,
+    .read = fts_ts_key_swap_get,
+    .open = simple_open,
+    .owner = THIS_MODULE,
+};
+
 /*****************************************************************************
 *  Name: fts_ts_probe
 *  Brief:
@@ -1599,6 +1686,14 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
     ts_data->early_suspend.resume = fts_ts_late_resume;
     register_early_suspend(&ts_data->early_suspend);
 #endif
+
+    ts_data->key_proc = proc_mkdir("touchscreen", NULL);
+    proc_create_data("key_enable", S_IWUSR, ts_data->key_proc, &proc_key_enable, ts_data);
+    proc_create_data("key_swap", S_IWUSR, ts_data->key_proc, &proc_key_swap, ts_data);
+
+    ts_data->key_enable = true;
+    ts_data->key_swap = false;
+
 //#0244395 bsp madan@smartisan.com add to support aging test begin.
     smartisan_hwstate_set("touch", "ok");
 //#0244395 bsp madan@smartisan.com add to support aging test end.
