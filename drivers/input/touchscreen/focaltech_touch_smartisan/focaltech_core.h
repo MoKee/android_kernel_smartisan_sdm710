@@ -172,6 +172,10 @@ struct fts_ts_data {
 #endif
 
     ktime_t timestamp;
+
+    struct proc_dir_entry *key_proc;
+    bool key_enable;
+    bool key_swap;
 };
 
 /*****************************************************************************
