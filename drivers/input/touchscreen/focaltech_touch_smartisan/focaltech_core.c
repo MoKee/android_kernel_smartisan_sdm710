@@ -66,12 +66,6 @@
 *****************************************************************************/
 struct fts_ts_data *fts_data;
 
-#if FTS_KEY_LONG_PRESS_SUPPORT
-#define SMARTISAN_KEY_PRESS_GAP   500
-#define SMARTISAN_KEY_NUM         3
-s64 fts_key_long_press_state_ms[SMARTISAN_KEY_NUM];
-#endif
-
 /*****************************************************************************
 * Static function prototypes
 *****************************************************************************/
@@ -635,9 +629,6 @@ static int fts_input_report_key(struct fts_ts_data *data, int index)
     int y = data->events[index].y;
     int flag = data->events[index].flag;
     u32 key_num = data->pdata->key_number;
-#if FTS_KEY_LONG_PRESS_SUPPORT
-    s64 key_press_time = 0;
-#endif
 
     if (!KEY_EN(data)) {
         return -EINVAL;
@@ -646,34 +637,12 @@ static int fts_input_report_key(struct fts_ts_data *data, int index)
         if (TOUCH_IN_KEY(x, data->pdata->key_x_coords[ik])) {
             if (EVENT_DOWN(flag)) {
                 data->key_down = true;
-#if FTS_KEY_LONG_PRESS_SUPPORT
-                if(0 == fts_key_long_press_state_ms[ik])
-                    fts_key_long_press_state_ms[ik] = ktime_to_ms(ktime_get());
-#else
                 input_report_key(data->input_dev, data->pdata->keys[ik], 1);
                 FTS_DEBUG("Key%d(%d, %d) DOWN!", ik, x, y);
-#endif
-
             } else {
                 data->key_down = false;
-#if FTS_KEY_LONG_PRESS_SUPPORT
-                if(0 != fts_key_long_press_state_ms[ik]) {
-                    key_press_time = ktime_to_ms(ktime_get()) - fts_key_long_press_state_ms[ik];
-                    if(key_press_time < SMARTISAN_KEY_PRESS_GAP) {
-                        input_report_key(data->input_dev, data->pdata->keys[ik], 1);
-                        input_report_key(data->input_dev, data->pdata->keys[ik], 0);
-                    }
-                    fts_key_long_press_state_ms[ik] = 0;
-                    FTS_DEBUG("key%d press time : %lld.", ik, key_press_time);
-                }
-                else {
-                    FTS_DEBUG("Key%d up but no down.!", ik);
-                }
-#else
                 input_report_key(data->input_dev, data->pdata->keys[ik], 0);
                 FTS_DEBUG("Key%d(%d, %d) Up!", ik, x, y);
-#endif
-
             }
             return 0;
         }
@@ -1670,15 +1639,6 @@ err_input_init:
     return ret;
 }
 
-#if FTS_KEY_LONG_PRESS_SUPPORT
-void fts_clear_key_state(void) {
-    int i = 0;
-    for(i = 0 ; i < SMARTISAN_KEY_NUM ; i++) {
-        fts_key_long_press_state_ms[i] = 0;
-    }
-}
-#endif
-
 /*****************************************************************************
 *  Name: fts_ts_remove
 *  Brief:
@@ -1871,10 +1831,6 @@ static int fts_ts_resume(struct device *dev)
         ts_data->suspended = false;
         return 0;
     }
-#endif
-
-#if FTS_KEY_LONG_PRESS_SUPPORT
-    fts_clear_key_state();
 #endif
 
     ts_data->suspended = false;
