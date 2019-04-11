@@ -3146,14 +3146,49 @@ static ssize_t mdss_fb_get_ie_level(struct device *dev,
 	return ret;
 }
 
+#ifdef CONFIG_EXPOSURE_ADJUSTMENT
+static ssize_t mdss_fb_set_ea_enable(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	u32 ea_enable;
+
+	if (sscanf(buf, "%d", &ea_enable) != 1) {
+		pr_err("sccanf buf error!\n");
+		return len;
+	}
+
+	ea_panel_mode_ctrl(set_panel, ea_enable != 0);
+
+	return len;
+}
+
+static ssize_t mdss_fb_get_ea_enable(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	bool ea_enable = ea_panel_is_enabled();
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", ea_enable ? 1 : 0);
+
+	return ret;
+}
+#endif
+
 static DEVICE_ATTR(msm_fb_ie_level, S_IRUGO | S_IWUSR,
 	mdss_fb_get_ie_level, mdss_fb_set_ie_level);
 static DEVICE_ATTR(show_blank_event, S_IRUGO,
 	mdss_mdp_show_blank_event, NULL);
+#ifdef CONFIG_EXPOSURE_ADJUSTMENT
+static DEVICE_ATTR(msm_fb_ea_enable, S_IRUGO | S_IWUSR,
+	mdss_fb_get_ea_enable, mdss_fb_set_ea_enable);
+#endif
 
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_show_blank_event.attr,
 	&dev_attr_msm_fb_ie_level.attr,
+#ifdef CONFIG_EXPOSURE_ADJUSTMENT
+	&dev_attr_msm_fb_ea_enable.attr,
+#endif
 	NULL,
 };
 
