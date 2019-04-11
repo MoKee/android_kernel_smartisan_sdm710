@@ -38,6 +38,12 @@ static u32 dither_matrix[DITHER_MATRIX_SZ] = {
 	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10
 };
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+static u32 gamma_luminance[] = {
+	3, 44, 91, 152, 229, 324, 419, 527, 675, 839, 1023
+};
+#endif
+
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_NONE,	"sde_none"},
 	{SDE_RM_TOPOLOGY_SINGLEPIPE,	"sde_singlepipe"},
@@ -67,6 +73,10 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	struct dsi_display *display;
 	struct sde_connector *c_conn;
 	int bl_lvl;
+#ifdef CONFIG_VENDOR_SMARTISAN
+	int temp;
+	int fenbianlu;
+#endif
 	struct drm_event event;
 	int rc = 0;
 
@@ -88,6 +98,20 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (brightness == 0) {
+		bl_lvl = 0;
+	} else if (brightness < 15) {
+		bl_lvl = 3;
+	} else if (brightness < 255) {
+		temp = (brightness - 15) / 24;
+		fenbianlu = gamma_luminance[temp + 1] - gamma_luminance[temp];
+		bl_lvl = ((gamma_luminance[temp] * 25) + fenbianlu * (brightness - 15 - (24 * temp))) / 25;
+	} else {
+		bl_lvl = 1023;
+	}
+#endif
 
 	if (c_conn->ops.set_backlight) {
 		event.type = DRM_EVENT_SYS_BACKLIGHT;
