@@ -99,7 +99,7 @@ static char modules_allowed[][MODULE_NAME_LEN] = {
 	"wsa881x_dlkm",
 };
 
-static modules_allowed_count = sizeof(modules_allowed) / MODULE_NAME_LEN;
+static unsigned int modules_allowed_count = sizeof(modules_allowed) / MODULE_NAME_LEN;
 
 #ifndef ARCH_SHF_SMALL
 #define ARCH_SHF_SMALL 0
