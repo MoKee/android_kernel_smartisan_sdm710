@@ -67,6 +67,40 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
 
+static char modules_allowed[][MODULE_NAME_LEN] = {
+	"adsp_loader_dlkm",
+	"analog_cdc_dlkm",
+	"apr_dlkm",
+	"aqt1000_cdc_dlkm",
+	"cpe_lsm_dlkm",
+	"digital_cdc_dlkm",
+	"hdmi_dlkm",
+	"machine_dlkm",
+	"mbhc_dlkm",
+	"msm_sdw_dlkm",
+	"native_dlkm",
+	"pinctrl_lpi_dlkm",
+	"pinctrl_wcd_dlkm",
+	"platform_dlkm",
+	"q6_dlkm",
+	"q6_notifier_dlkm",
+	"q6_pdr_dlkm",
+	"stub_dlkm",
+	"swr_ctrl_dlkm",
+	"swr_dlkm",
+	"usf_dlkm",
+	"wcd9335_dlkm",
+	"wcd934x_dlkm",
+	"wcd9xxx_dlkm",
+	"wcd_core_dlkm",
+	"wcd_cpe_dlkm",
+	"wcd_spi_dlkm",
+	"wglink_dlkm",
+	"wsa881x_dlkm",
+};
+
+static unsigned int modules_allowed_count = sizeof(modules_allowed) / MODULE_NAME_LEN;
+
 #ifndef ARCH_SHF_SMALL
 #define ARCH_SHF_SMALL 0
 #endif
@@ -1277,6 +1311,12 @@ static int check_version(Elf_Shdr *sechdrs,
 {
 	unsigned int i, num_versions;
 	struct modversion_info *versions;
+
+	for (i = 0; i < modules_allowed_count; i++) {
+		if (strcmp(mod->name, modules_allowed[i]) == 0) {
+			return 1;
+		}
+	}
 
 	/* Exporting module didn't supply crcs?  OK, we're already tainted. */
 	if (!crc)
@@ -2981,6 +3021,13 @@ static int check_modinfo(struct module *mod, struct load_info *info, int flags)
 {
 	const char *modmagic = get_modinfo(info, "vermagic");
 	int err;
+	unsigned int i;
+
+	for (i = 0; i < modules_allowed_count; i++) {
+		if (strcmp(mod->name, modules_allowed[i]) == 0) {
+			goto pass;
+		}
+	}
 
 	if (flags & MODULE_INIT_IGNORE_VERMAGIC)
 		modmagic = NULL;
@@ -2996,6 +3043,7 @@ static int check_modinfo(struct module *mod, struct load_info *info, int flags)
 		return -ENOEXEC;
 	}
 
+pass:
 	if (!get_modinfo(info, "intree")) {
 		if (!test_taint(TAINT_OOT_MODULE))
 			pr_warn("%s: loading out-of-tree module taints kernel.\n",
