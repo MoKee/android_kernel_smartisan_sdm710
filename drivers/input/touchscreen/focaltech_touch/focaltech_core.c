@@ -643,12 +643,10 @@ static int fts_input_report_key(struct fts_ts_data *data, int index)
 
     for (ik = 0; ik < key_num; ik++) {
         if (TOUCH_IN_KEY(x, data->pdata->key_x_coords[ik])) {
-            // This flag was inverted on purpose, since we don't want to
-            // change value in dtbo.
             if (data->key_swap) {
-                key_code = data->pdata->keys[ik];
-            } else {
                 key_code = data->pdata->keys[key_num - 1 - ik];
+            } else {
+                key_code = data->pdata->keys[ik];
             }
             if (EVENT_DOWN(flag)) {
                 data->key_down = true;
