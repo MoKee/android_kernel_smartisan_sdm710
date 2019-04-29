@@ -470,7 +470,7 @@
 
 		focaltech,have-key;
 		focaltech,key-number = <3>;
-		focaltech,keys = <580 172 158>;
+		focaltech,keys = <158 172 580>;
 		focaltech,key-y-coord = <2500>;
 		focaltech,key-x-coords = <825 900 975>;
 	};
