@@ -1,0 +1,137 @@
+config PINCTRL_LPI
+	tristate "audio-kernel"
+
+config PINCTRL_WCD
+	tristate "audio-kernel"
+
+config AUDIO_EXT_CLK
+	tristate "audio-kernel"
+
+config SND_SOC_WCD9XXX_V2
+	tristate "audio-kernel"
+
+config SND_SOC_WCD_MBHC
+	tristate "audio-kernel"
+
+config SND_SOC_WSA881X
+	tristate "audio-kernel"
+
+config SND_SOC_WCD_DSP_MGR
+	tristate "audio-kernel"
+
+config SND_SOC_WCD_SPI
+	tristate "audio-kernel"
+
+config SND_SOC_WCD_CPE
+	tristate "audio-kernel"
+
+config SND_SOC_CPE
+	tristate "audio-kernel"
+
+config SND_SOC_WCD9335
+	tristate "audio-kernel"
+
+config SND_SOC_WCD934X
+	tristate "audio-kernel"
+
+config SND_SOC_WCD934X_MBHC
+	tristate "audio-kernel"
+
+config SND_SOC_WCD934X_DSD
+	tristate "audio-kernel"
+
+config MSM_QDSP6V2_CODECS
+	tristate "audio-kernel"
+
+config MSM_ULTRASOUND
+	tristate "audio-kernel"
+
+config MSM_QDSP6_APRV2_GLINK
+	tristate "audio-kernel"
+
+config MSM_ADSP_LOADER
+	tristate "audio-kernel"
+
+config MSM_QDSP6_SSR
+	tristate "audio-kernel"
+
+config MSM_QDSP6_PDR
+	tristate "audio-kernel"
+
+config MSM_QDSP6_NOTIFIER
+	tristate "audio-kernel"
+
+config SND_SOC_MSM_HOSTLESS_PCM
+	tristate "audio-kernel"
+
+config SND_SOC_MSM_QDSP6V2_INTF
+	tristate "audio-kernel"
+
+config SND_SOC_SDM670
+	tristate "audio-kernel"
+
+config SOUNDWIRE
+	tristate "audio-kernel"
+
+config SOUNDWIRE_WCD_CTRL
+	tristate "audio-kernel"
+
+config SND_SOC_QDSP6V2
+	tristate "audio-kernel"
+
+config WCD9XXX_CODEC_CORE
+	tristate "audio-kernel"
+
+config SND_SOC_WCD_MBHC_ADC
+	tristate "audio-kernel"
+
+config SND_SOC_WCD_MBHC_LEGACY
+	tristate "audio-kernel"
+
+config QTI_PP
+	tristate "audio-kernel"
+
+config QTI_PP_AUDIOSPHERE
+	tristate "audio-kernel"
+
+config SND_HWDEP_ROUTING
+	tristate "audio-kernel"
+
+config DTS_EAGLE
+	tristate "audio-kernel"
+
+config DOLBY_DS2
+	tristate "audio-kernel"
+
+config DOLBY_LICENSE
+	tristate "audio-kernel"
+
+config DTS_SRS_TM
+	tristate "audio-kernel"
+
+config SND_SOC_EXT_CODEC
+	tristate "audio-kernel"
+
+config SND_SOC_INT_CODEC
+	tristate "audio-kernel"
+
+config SND_SOC_MSM_STUB
+	tristate "audio-kernel"
+
+config WCD_DSP_GLINK
+	tristate "audio-kernel"
+
+config SND_SOC_SDM660_CDC
+	tristate "audio-kernel"
+
+config SND_SOC_ANALOG_CDC
+	tristate "audio-kernel"
+
+config SND_SOC_DIGITAL_CDC
+	tristate "audio-kernel"
+
+config SND_SOC_MSM_SDW
+	tristate "audio-kernel"
+
+config SND_SOC_MSM_HDMI_CODEC_RX
+	tristate "audio-kernel"
