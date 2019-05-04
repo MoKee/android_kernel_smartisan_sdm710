@@ -1,3 +1,4 @@
+ifndef CONFIG_VENDOR_SMARTISAN
 # auto-detect subdirs
 ifeq ($(CONFIG_ARCH_SDM845), y)
 include $(srctree)/techpack/audio/config/sdm845auto.conf
@@ -11,6 +12,7 @@ ifeq ($(CONFIG_ARCH_SDXPOORWILLS), y)
 include $(srctree)/techpack/audio/config/sdxpoorwillsauto.conf
 export
 endif
+endif # CONFIG_VENDOR_SMARTISAN
 
 # Use USERINCLUDE when you must reference the UAPI directories only.
 USERINCLUDE     += \
@@ -22,6 +24,7 @@ LINUXINCLUDE    += \
                 -I$(srctree)/techpack/audio/include/uapi \
                 -I$(srctree)/techpack/audio/include
 
+ifndef CONFIG_VENDOR_SMARTISAN
 ifeq ($(CONFIG_ARCH_SDM845), y)
 LINUXINCLUDE    += \
                 -include $(srctree)/techpack/audio/config/sdm845autoconf.h
@@ -34,6 +37,7 @@ ifeq ($(CONFIG_ARCH_SDXPOORWILLS), y)
 LINUXINCLUDE    += \
                 -include $(srctree)/techpack/audio/config/sdxpoorwillsautoconf.h
 endif
+endif # CONFIG_VENDOR_SMARTISAN
 
 obj-y += asoc/
 obj-y += dsp/

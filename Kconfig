@@ -14,3 +14,4 @@ config VENDOR_SMARTISAN
 	  This feature enables Smartisan specific hacks
 
 source "arch/$SRCARCH/Kconfig"
+source "techpack/audio/Kconfig"
