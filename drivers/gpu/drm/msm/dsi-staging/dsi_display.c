@@ -1647,19 +1647,9 @@ static int dsi_display_set_clamp(struct dsi_display *display, bool enable)
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 	ulps_enabled = display->ulps_enabled;
 
-	/*
-	 * Clamp control can be either through the DSI controller or
-	 * the DSI PHY depending on hardware variation
-	 */
 	rc = dsi_ctrl_set_clamp_state(m_ctrl->ctrl, enable, ulps_enabled);
 	if (rc) {
-		pr_err("DSI ctrl clamp state change(%d) failed\n", enable);
-		return rc;
-	}
-
-	rc = dsi_phy_set_clamp_state(m_ctrl->phy, enable);
-	if (rc) {
-		pr_err("DSI phy clamp state change(%d) failed\n", enable);
+		pr_err("DSI Clamp state change(%d) failed\n", enable);
 		return rc;
 	}
 
@@ -1673,18 +1663,7 @@ static int dsi_display_set_clamp(struct dsi_display *display, bool enable)
 			pr_err("DSI Clamp state change(%d) failed\n", enable);
 			return rc;
 		}
-
-		rc = dsi_phy_set_clamp_state(ctrl->phy, enable);
-		if (rc) {
-			pr_err("DSI phy clamp state change(%d) failed\n",
-				enable);
-			return rc;
-		}
-
-		pr_debug("Clamps %s for ctrl%d\n",
-			enable ? "enabled" : "disabled", i);
 	}
-
 	display->clamp_enabled = enable;
 	return 0;
 }
@@ -3103,8 +3082,7 @@ int dsi_pre_clkoff_cb(void *priv,
 	int rc = 0;
 	struct dsi_display *display = priv;
 
-	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF) &&
-		(l_type && DSI_LINK_LP_CLK)) {
+	if ((clk & DSI_LINK_CLK) && (new_state == DSI_CLK_OFF)) {
 		/*
 		 * If continuous clock is enabled then disable it
 		 * before entering into ULPS Mode.
@@ -3168,7 +3146,7 @@ int dsi_post_clkon_cb(void *priv,
 	struct dsi_display *display = priv;
 	bool mmss_clamp = false;
 
-	if ((clk & DSI_LINK_CLK) && (l_type & DSI_LINK_LP_CLK)) {
+	if (clk & DSI_CORE_CLK) {
 		mmss_clamp = display->clamp_enabled;
 		/*
 		 * controller setup is needed if coming out of idle
@@ -3176,13 +3154,6 @@ int dsi_post_clkon_cb(void *priv,
 		 */
 		if (mmss_clamp)
 			dsi_display_ctrl_setup(display);
-
-		/*
-		 * Phy setup is needed if coming out of idle
-		 * power collapse with clamps enabled.
-		 */
-		if (display->phy_idle_power_off || mmss_clamp)
-			dsi_display_phy_idle_on(display, mmss_clamp);
 
 		if (display->ulps_enabled && mmss_clamp) {
 			/*
@@ -3221,9 +3192,16 @@ int dsi_post_clkon_cb(void *priv,
 				__func__, rc);
 			goto error;
 		}
+
+		/*
+		 * Phy setup is needed if coming out of idle
+		 * power collapse with clamps enabled.
+		 */
+		if (display->phy_idle_power_off || mmss_clamp)
+			dsi_display_phy_idle_on(display, mmss_clamp);
 	}
 
-	if ((clk & DSI_LINK_CLK) && (l_type & DSI_LINK_HS_CLK)) {
+	if (clk & DSI_LINK_CLK) {
 		/*
 		 * Toggle the resync FIFO everytime clock changes, except
 		 * when cont-splash screen transition is going on.
