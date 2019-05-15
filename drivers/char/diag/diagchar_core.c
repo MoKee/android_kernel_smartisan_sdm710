@@ -1261,7 +1261,8 @@ static void diag_md_session_exit(void)
 			diag_log_mask_free(session_info->log_mask);
 			kfree(session_info->log_mask);
 			session_info->log_mask = NULL;
-			diag_msg_mask_free(session_info->msg_mask);
+			diag_msg_mask_free(session_info->msg_mask,
+				session_info);
 			kfree(session_info->msg_mask);
 			session_info->msg_mask = NULL;
 			diag_event_mask_free(session_info->event_mask);
@@ -1332,7 +1333,9 @@ int diag_md_session_create(int mode, int peripheral_mask, int proc)
 			 "return value of event copy. err %d\n", err);
 		goto fail_peripheral;
 	}
-	err = diag_msg_mask_copy(new_session->msg_mask, &msg_mask);
+	new_session->msg_mask_tbl_count = 0;
+	err = diag_msg_mask_copy(new_session, new_session->msg_mask,
+		&msg_mask);
 	if (err) {
 		DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			 "return value of msg copy. err %d\n", err);
@@ -1368,7 +1371,8 @@ fail_peripheral:
 	diag_event_mask_free(new_session->event_mask);
 	kfree(new_session->event_mask);
 	new_session->event_mask = NULL;
-	diag_msg_mask_free(new_session->msg_mask);
+	diag_msg_mask_free(new_session->msg_mask,
+		new_session);
 	kfree(new_session->msg_mask);
 	new_session->msg_mask = NULL;
 	kfree(new_session);
@@ -1396,7 +1400,8 @@ static void diag_md_session_close(int pid)
 	diag_log_mask_free(session_info->log_mask);
 	kfree(session_info->log_mask);
 	session_info->log_mask = NULL;
-	diag_msg_mask_free(session_info->msg_mask);
+	diag_msg_mask_free(session_info->msg_mask,
+		session_info);
 	kfree(session_info->msg_mask);
 	session_info->msg_mask = NULL;
 	diag_event_mask_free(session_info->event_mask);
@@ -1715,8 +1720,8 @@ static void diag_switch_logging_clear_mask(
 static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 {
 	int new_mode, i = 0;
-	int curr_mode, err = 0;
-	uint8_t do_switch = 1, peripheral = 0;
+	int curr_mode, err = 0, peripheral = 0;
+	uint8_t do_switch = 1;
 	uint32_t peripheral_mask = 0, pd_mask = 0;
 
 	if (!param)
@@ -1730,6 +1735,10 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 
 	if (param->pd_mask) {
 		pd_mask = diag_translate_mask(param->pd_mask);
+		param->diag_id = 0;
+		param->pd_val = 0;
+		param->peripheral = -EINVAL;
+
 		for (i = UPD_WLAN; i < NUM_MD_SESSIONS; i++) {
 			if (pd_mask & (1 << i)) {
 				if (diag_search_diagid_by_pd(i, &param->diag_id,
@@ -1739,6 +1748,12 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 				}
 			}
 		}
+
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"diag: pd_mask = %d, diag_id = %d, peripheral = %d, pd_val = %d\n",
+			param->pd_mask, param->diag_id,
+			param->peripheral, param->pd_val);
+
 		if (!param->diag_id ||
 			(param->pd_val < UPD_WLAN) ||
 			(param->pd_val > NUM_MD_SESSIONS)) {
@@ -1748,22 +1763,26 @@ static int diag_switch_logging(struct diag_logging_mode_param_t *param)
 			return -EINVAL;
 		}
 
-		DIAG_LOG(DIAG_DEBUG_USERSPACE,
-			"diag: pd_mask = %d, diag_id = %d, peripheral = %d, pd_val = %d\n",
-			param->pd_mask, param->diag_id,
-			param->peripheral, param->pd_val);
-
 		peripheral = param->peripheral;
+		if ((peripheral < PERIPHERAL_MODEM) ||
+			(peripheral >= NUM_PERIPHERALS)) {
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			"Invalid peripheral: %d\n", peripheral);
+			return -EINVAL;
+		}
 		i = param->pd_val - UPD_WLAN;
+		mutex_lock(&driver->md_session_lock);
 		if (driver->md_session_map[peripheral] &&
 			(MD_PERIPHERAL_MASK(peripheral) &
 			diag_mux->mux_mask) &&
 			!driver->pd_session_clear[i]) {
 			DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			"diag_fr: User PD is already logging onto active peripheral logging\n");
+			mutex_unlock(&driver->md_session_lock);
 			driver->pd_session_clear[i] = 0;
 			return -EINVAL;
 		}
+		mutex_unlock(&driver->md_session_lock);
 		peripheral_mask =
 			diag_translate_mask(param->pd_mask);
 		param->peripheral_mask = peripheral_mask;

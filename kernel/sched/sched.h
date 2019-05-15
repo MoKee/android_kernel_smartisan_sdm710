@@ -679,6 +679,8 @@ struct root_domain {
 };
 
 extern struct root_domain def_root_domain;
+extern void sched_get_rd(struct root_domain *rd);
+extern void sched_put_rd(struct root_domain *rd);
 
 #ifdef HAVE_RT_PUSH_IPI
 extern void rto_push_irq_work_func(struct irq_work *work);
@@ -1106,6 +1108,12 @@ static inline void sched_ttwu_pending(void) { }
 
 #include "stats.h"
 #include "auto_group.h"
+
+#define NO_BOOST 0
+#define FULL_THROTTLE_BOOST 1
+#define CONSERVATIVE_BOOST 2
+#define RESTRAINED_BOOST 3
+
 
 enum sched_boost_policy {
 	SCHED_BOOST_NONE,
@@ -1891,8 +1899,13 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 	return cpu_util_freq_pelt(cpu);
 }
 
+#define sched_ravg_window TICK_NSEC
+#define sysctl_sched_use_walt_cpu_util 0
+
 #endif /* CONFIG_SCHED_WALT */
 
+extern unsigned long
+boosted_cpu_util(int cpu, struct sched_walt_cpu_load *walt_load);
 #endif
 
 extern unsigned int capacity_margin_freq;
@@ -2417,11 +2430,6 @@ extern void set_preferred_cluster(struct related_thread_group *grp);
 extern void add_new_task_to_grp(struct task_struct *new);
 extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
 
-#define NO_BOOST 0
-#define FULL_THROTTLE_BOOST 1
-#define CONSERVATIVE_BOOST 2
-#define RESTRAINED_BOOST 3
-
 static inline int cpu_capacity(int cpu)
 {
 	return cpu_rq(cpu)->cluster->capacity;
@@ -2473,7 +2481,11 @@ static inline void __update_min_max_capacity(void)
 	int i;
 	int max_cap = 0, min_cap = INT_MAX;
 
-	for_each_online_cpu(i) {
+	for_each_possible_cpu(i) {
+
+		if (!cpu_active(i))
+			continue;
+
 		max_cap = max(max_cap, cpu_capacity(i));
 		min_cap = min(min_cap, cpu_capacity(i));
 	}
@@ -2738,6 +2750,7 @@ static inline unsigned int power_cost(int cpu, bool max)
 }
 
 extern void walt_sched_energy_populated_callback(void);
+extern void walt_update_min_max_capacity(void);
 
 #else	/* CONFIG_SCHED_WALT */
 
@@ -2822,9 +2835,12 @@ static inline int alloc_related_thread_groups(void) { return 0; }
 #define trace_sched_cpu_load_wakeup(...)
 
 static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 delta) { }
-
 static inline void update_cpu_cluster_capacity(const cpumask_t *cpus) { }
-
+static inline bool
+task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
+{
+	return 0;
+}
 #ifdef CONFIG_SMP
 static inline unsigned long thermal_cap(int cpu)
 {
@@ -2838,6 +2854,11 @@ static inline int cpu_max_power_cost(int cpu)
 #endif
 
 static inline void clear_walt_request(int cpu) { }
+
+static inline int is_reserved(int cpu)
+{
+	return 0;
+}
 
 static inline int got_boost_kick(void)
 {
@@ -2866,6 +2887,7 @@ static inline unsigned int power_cost(int cpu, bool max)
 }
 
 static inline void walt_sched_energy_populated_callback(void) { }
+static inline void walt_update_min_max_capacity(void) { }
 
 #endif	/* CONFIG_SCHED_WALT */
 

@@ -42,6 +42,9 @@
 
 #define HFI_MAX_POLL_TRY 5
 
+#define HFI_MAX_PC_POLL_TRY 50
+#define HFI_POLL_TRY_SLEEP 20
+
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
 static DEFINE_MUTEX(hfi_cmd_q_mutex);
@@ -513,8 +516,8 @@ void cam_hfi_disable_cpu(void __iomem *icp_base)
 	uint32_t val;
 	uint32_t try = 0;
 
-	while (try < HFI_MAX_POLL_TRY) {
-		data = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_STATUS);
+	while (try < HFI_MAX_PC_POLL_TRY) {
+		data = cam_io_r_mb(icp_base + HFI_REG_A5_CSR_A5_STATUS);
 		CAM_DBG(CAM_HFI, "wfi status = %x\n", (int)data);
 
 		if (data & ICP_CSR_A5_STATUS_WFI)
@@ -523,7 +526,7 @@ void cam_hfi_disable_cpu(void __iomem *icp_base)
 		 * and Host can the proceed. No interrupt is expected from FW
 		 * at this time.
 		 */
-		msleep(100);
+		msleep_interruptible(HFI_POLL_TRY_SLEEP);
 		try++;
 	}
 
@@ -533,6 +536,11 @@ void cam_hfi_disable_cpu(void __iomem *icp_base)
 
 	val = cam_io_r(icp_base + HFI_REG_A5_CSR_NSEC_RESET);
 	cam_io_w_mb(val, icp_base + HFI_REG_A5_CSR_NSEC_RESET);
+
+	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_RESET,
+		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
+	cam_io_w_mb((uint32_t)INTR_DISABLE,
+		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 }
 
 void cam_hfi_enable_cpu(void __iomem *icp_base)
@@ -600,7 +608,7 @@ int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
 		return -EINVAL;
 	}
 
-	cam_io_w_mb((uint32_t)INTR_ENABLE,
+	cam_io_w_mb((uint32_t)(INTR_ENABLE|INTR_ENABLE_WD0),
 		icp_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 
 	fw_version = cam_io_r(icp_base + HFI_REG_FW_VERSION);
@@ -610,6 +618,8 @@ int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
 	CAM_DBG(CAM_HFI, "wfi status = %x", (int)data);
 
 	cam_io_w_mb((uint32_t)hfi_mem->qtbl.iova, icp_base + HFI_REG_QTBL_PTR);
+	cam_io_w_mb((uint32_t)hfi_mem->sfr_buf.iova,
+		icp_base + HFI_REG_SFR_PTR);
 	cam_io_w_mb((uint32_t)hfi_mem->shmem.iova,
 		icp_base + HFI_REG_SHARED_MEM_PTR);
 	cam_io_w_mb((uint32_t)hfi_mem->shmem.len,
@@ -635,6 +645,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	struct hfi_q_hdr *cmd_q_hdr, *msg_q_hdr, *dbg_q_hdr;
 	uint32_t hw_version, soc_version, fw_version, status = 0;
 	uint32_t retry_cnt = 0;
+	struct sfr_buf *sfr_buffer;
 
 	mutex_lock(&hfi_cmd_q_mutex);
 	mutex_lock(&hfi_msg_q_mutex);
@@ -716,6 +727,9 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	dbg_q_hdr->qhdr_read_idx = RESET;
 	dbg_q_hdr->qhdr_write_idx = RESET;
 
+	sfr_buffer = (struct sfr_buf *)hfi_mem->sfr_buf.kva;
+	sfr_buffer->size = ICP_MSG_SFR_SIZE_IN_BYTES;
+
 	switch (event_driven_mode) {
 	case INTR_MODE:
 		cmd_q_hdr->qhdr_type = Q_CMD;
@@ -788,7 +802,10 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		break;
 	}
 
-	cam_io_w_mb((uint32_t)hfi_mem->qtbl.iova, icp_base + HFI_REG_QTBL_PTR);
+	cam_io_w_mb((uint32_t)hfi_mem->qtbl.iova,
+		icp_base + HFI_REG_QTBL_PTR);
+	cam_io_w_mb((uint32_t)hfi_mem->sfr_buf.iova,
+		icp_base + HFI_REG_SFR_PTR);
 	cam_io_w_mb((uint32_t)hfi_mem->shmem.iova,
 		icp_base + HFI_REG_SHARED_MEM_PTR);
 	cam_io_w_mb((uint32_t)hfi_mem->shmem.len,
@@ -845,7 +862,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	g_hfi->hfi_state = HFI_READY;
 	g_hfi->cmd_q_state = true;
 	g_hfi->msg_q_state = true;
-	cam_io_w_mb((uint32_t)INTR_ENABLE,
+	cam_io_w_mb((uint32_t)(INTR_ENABLE|INTR_ENABLE_WD0),
 		icp_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 
 	mutex_unlock(&hfi_cmd_q_mutex);
@@ -874,11 +891,6 @@ void cam_hfi_deinit(void __iomem *icp_base)
 	g_hfi->cmd_q_state = false;
 	g_hfi->msg_q_state = false;
 
-	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_RESET,
-		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
-
-	cam_io_w_mb((uint32_t)INTR_DISABLE,
-		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 	kzfree(g_hfi);
 	g_hfi = NULL;
 

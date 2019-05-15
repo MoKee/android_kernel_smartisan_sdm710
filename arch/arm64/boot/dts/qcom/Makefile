@@ -189,7 +189,8 @@ else
 		sxr1130-usbc-external-codec-mtp-overlay.dtbo \
 		sxr1130-usbc-external-codec-pm660a-mtp-overlay.dtbo \
 		sxr1130-usbc-mtp-overlay.dtbo \
-		sxr1130-usbc-pm660a-mtp-overlay.dtbo
+		sxr1130-usbc-pm660a-mtp-overlay.dtbo \
+		sxr1130-qrd-overlay.dtbo
 endif
 
 ifdef CONFIG_VENDOR_SMARTISAN
@@ -267,6 +268,7 @@ sxr1130-usbc-external-codec-mtp-overlay.dtbo-base := sxr1130.dtb
 sxr1130-usbc-external-codec-pm660a-mtp-overlay.dtbo-base := sxr1130.dtb
 sxr1130-usbc-mtp-overlay.dtbo-base := sxr1130.dtb
 sxr1130-usbc-pm660a-mtp-overlay.dtbo-base := sxr1130.dtb
+sxr1130-qrd-overlay.dtbo-base := sxr1130.dtb
 
 else
 dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
@@ -335,7 +337,8 @@ dtb-$(CONFIG_ARCH_SDM670) += sdm670-rumi.dtb \
 	sxr1130-usbc-external-codec-mtp.dtb \
 	sxr1130-usbc-external-codec-pm660a-mtp.dtb \
 	sxr1130-usbc-mtp.dtb \
-	sxr1130-usbc-pm660a-mtp.dtb
+	sxr1130-usbc-pm660a-mtp.dtb \
+	sxr1130-qrd.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
@@ -445,6 +448,8 @@ dtb-$(CONFIG_ARCH_SDM632) += sdm632-rumi.dtb \
 	sdm632-qrd-sku4.dtb
 
 endif
+
+dtb-$(CONFIG_ARCH_SDM670_VM) += sdm670-vm.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)

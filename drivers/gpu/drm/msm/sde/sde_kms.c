@@ -604,6 +604,12 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 		return;
 	}
 
+	if (sde_kms->first_kickoff) {
+		sde_power_scale_reg_bus(&priv->phandle, sde_kms->core_client,
+			VOTE_INDEX_HIGH, false);
+		sde_kms->first_kickoff = false;
+	}
+
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		list_for_each_entry(encoder, &dev->mode_config.encoder_list,
 				head) {
@@ -2723,8 +2729,10 @@ static void sde_kms_handle_power_event(u32 event_type, void *usr)
 	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
 		sde_irq_update(msm_kms, true);
 		sde_vbif_init_memtypes(sde_kms);
+		sde_kms->first_kickoff = true;
 	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
 		sde_irq_update(msm_kms, false);
+		sde_kms->first_kickoff = false;
 	}
 }
 
@@ -2846,7 +2854,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		sde_kms->mmio = NULL;
 		goto error;
 	}
-	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
+	DRM_INFO("mapped mdp address space @%pK\n", sde_kms->mmio);
 	sde_kms->mmio_len = msm_iomap_size(dev->platformdev, "mdp_phys");
 
 	rc = sde_dbg_reg_register_base(SDE_DBG_NAME, sde_kms->mmio,
