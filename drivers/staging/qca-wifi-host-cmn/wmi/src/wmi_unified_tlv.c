@@ -1984,7 +1984,7 @@ QDF_STATUS send_mgmt_cmd_tlv(wmi_unified_t wmi_handle,
 				     QDF_DMA_TO_DEVICE);
 	if (status != QDF_STATUS_SUCCESS) {
 		WMI_LOGE("%s: wmi buf map failed", __func__);
-		goto err1;
+		goto free_buf;
 	}
 
 	dma_addr = qdf_nbuf_get_frag_paddr(param->tx_frame, 0);
@@ -2005,7 +2005,7 @@ QDF_STATUS send_mgmt_cmd_tlv(wmi_unified_t wmi_handle,
 		if (status != QDF_STATUS_SUCCESS) {
 			WMI_LOGE("%s: Populate TX send params failed",
 				 __func__);
-			goto err1;
+			goto unmap_tx_frame;
 		}
 		cmd_len += sizeof(wmi_tx_send_params);
 	}
@@ -2013,11 +2013,14 @@ QDF_STATUS send_mgmt_cmd_tlv(wmi_unified_t wmi_handle,
 	if (wmi_unified_cmd_send(wmi_handle, buf, cmd_len,
 				      WMI_MGMT_TX_SEND_CMDID)) {
 		WMI_LOGE("%s: Failed to send mgmt Tx", __func__);
-		goto err1;
+		goto unmap_tx_frame;
 	}
 	return QDF_STATUS_SUCCESS;
 
-err1:
+unmap_tx_frame:
+	qdf_nbuf_unmap_single(qdf_ctx, param->tx_frame,
+				     QDF_DMA_TO_DEVICE);
+free_buf:
 	wmi_buf_free(buf);
 	return QDF_STATUS_E_FAILURE;
 }
@@ -4084,6 +4087,12 @@ static QDF_STATUS extract_sar_limit_event_tlv(wmi_unified_t wmi_handle,
 	event->sar_enable = fixed_param->sar_enable;
 	event->num_limit_rows = fixed_param->num_limit_rows;
 
+	if (event->num_limit_rows > param_buf->num_sar_get_limits) {
+		WMI_LOGE(FL("Num rows %d exceeds sar_get_limits rows len %d"),
+			 event->num_limit_rows, param_buf->num_sar_get_limits);
+		return QDF_STATUS_E_INVAL;
+	}
+
 	if (event->num_limit_rows > MAX_SAR_LIMIT_ROWS_SUPPORTED) {
 		QDF_ASSERT(0);
 		WMI_LOGE(FL("Num rows %d exceeds max of %d"),
@@ -4093,14 +4102,18 @@ static QDF_STATUS extract_sar_limit_event_tlv(wmi_unified_t wmi_handle,
 	}
 
 	row_in = param_buf->sar_get_limits;
-	row_out = &event->sar_limit_row[0];
-	for (row = 0; row < event->num_limit_rows; row++) {
-		row_out->band_id = row_in->band_id;
-		row_out->chain_id = row_in->chain_id;
-		row_out->mod_id = row_in->mod_id;
-		row_out->limit_value = row_in->limit_value;
-		row_out++;
-		row_in++;
+	if (row_in) {
+		row_out = &event->sar_limit_row[0];
+		for (row = 0; row < event->num_limit_rows; row++) {
+			row_out->band_id = row_in->band_id;
+			row_out->chain_id = row_in->chain_id;
+			row_out->mod_id = row_in->mod_id;
+			row_out->limit_value = row_in->limit_value;
+			row_out++;
+			row_in++;
+		}
+	} else {
+		WMI_LOGD("sar_get_limits is NULL");
 	}
 
 	return QDF_STATUS_SUCCESS;
@@ -9394,7 +9407,7 @@ QDF_STATUS send_stats_ext_req_cmd_tlv(wmi_unified_t wmi_handle,
 	QDF_STATUS ret;
 	wmi_req_stats_ext_cmd_fixed_param *cmd;
 	wmi_buf_t buf;
-	uint16_t len;
+	size_t len;
 	uint8_t *buf_ptr;
 
 	len = sizeof(*cmd) + WMI_TLV_HDR_SIZE + preq->request_data_len;
@@ -13417,6 +13430,7 @@ static QDF_STATUS extract_all_stats_counts_tlv(wmi_unified_t wmi_handle,
 {
 	WMI_UPDATE_STATS_EVENTID_param_tlvs *param_buf;
 	wmi_stats_event_fixed_param *ev;
+	uint64_t min_data_len;
 
 	param_buf = (WMI_UPDATE_STATS_EVENTID_param_tlvs *) evt_buf;
 
@@ -13424,6 +13438,11 @@ static QDF_STATUS extract_all_stats_counts_tlv(wmi_unified_t wmi_handle,
 	if (!ev) {
 		WMI_LOGE("%s: Failed to alloc memory", __func__);
 		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (param_buf->num_data > WMI_SVC_MSG_MAX_SIZE - sizeof(*ev)) {
+		WMI_LOGE("num_data : %u is invalid", param_buf->num_data);
+		return QDF_STATUS_E_FAULT;
 	}
 
 	switch (ev->stats_id) {
@@ -13455,6 +13474,26 @@ static QDF_STATUS extract_all_stats_counts_tlv(wmi_unified_t wmi_handle,
 		stats_param->stats_id = 0;
 		break;
 
+	}
+
+	/* ev->num_*_stats may cause uint32_t overflow, so use uint64_t
+	 * to save total length calculated
+	 */
+	min_data_len =
+		(((uint64_t)ev->num_pdev_stats) * sizeof(wmi_pdev_stats)) +
+		(((uint64_t)ev->num_vdev_stats) * sizeof(wmi_vdev_stats)) +
+		(((uint64_t)ev->num_peer_stats) * sizeof(wmi_peer_stats)) +
+		(((uint64_t)ev->num_bcnflt_stats) *
+		 sizeof(wmi_bcnfilter_stats_t)) +
+		(((uint64_t)ev->num_chan_stats) * sizeof(wmi_chan_stats)) +
+		(((uint64_t)ev->num_mib_stats) * sizeof(wmi_mib_stats)) +
+		(((uint64_t)ev->num_bcn_stats) * sizeof(wmi_bcn_stats)) +
+		(((uint64_t)ev->num_peer_extd_stats) *
+		 sizeof(wmi_peer_extd_stats));
+	if (param_buf->num_data != min_data_len) {
+		WMI_LOGE("data len: %u isn't same as calculated: %llu",
+			 param_buf->num_data, min_data_len);
+		return QDF_STATUS_E_FAULT;
 	}
 
 	stats_param->num_pdev_stats = ev->num_pdev_stats;
