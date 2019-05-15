@@ -1649,16 +1649,13 @@ static void csr_scan_add_result(tpAniSirGlobal pMac, struct tag_csrscan_result
 				*pResult,
 				tDot11fBeaconIEs *pIes, uint32_t sessionId)
 {
-	tpCsrNeighborRoamControlInfo pNeighborRoamInfo;
+	tpCsrNeighborRoamControlInfo pNeighborRoamInfo = NULL;
 	struct qdf_mac_addr bssid;
 	uint8_t channel_id = pResult->Result.BssDescriptor.channelId;
+	bool is_session_valid = CSR_IS_SESSION_VALID(pMac, sessionId);
 
-	if (!CSR_IS_SESSION_VALID(pMac, sessionId)) {
-		sme_err("Invalid session id: %d", sessionId);
-		return;
-	}
-
-	pNeighborRoamInfo = &pMac->roam.neighborRoamInfo[sessionId];
+	if (is_session_valid)
+		pNeighborRoamInfo = &pMac->roam.neighborRoamInfo[sessionId];
 	qdf_mem_zero(&bssid.bytes, QDF_MAC_ADDR_SIZE);
 	qdf_mem_copy(bssid.bytes, &pResult->Result.BssDescriptor.bssId,
 			QDF_MAC_ADDR_SIZE);
@@ -1669,7 +1666,8 @@ static void csr_scan_add_result(tpAniSirGlobal pMac, struct tag_csrscan_result
 				&pResult->Result.BssDescriptor, pIes);
 	csr_ll_insert_tail(&pMac->scan.scanResultList, &pResult->Link,
 			   LL_ACCESS_LOCK);
-	if (0 == pNeighborRoamInfo->cfgParams.channelInfo.numOfChannels) {
+	if (pNeighborRoamInfo &&
+	    0 == pNeighborRoamInfo->cfgParams.channelInfo.numOfChannels) {
 		/*
 		 * Build the occupied channel list, only if
 		 * "gNeighborScanChannelList" is NOT set in the cfg.ini file
@@ -2446,8 +2444,15 @@ csr_save_scan_entry(tpAniSirGlobal pMac,
 				pcl_chan_weight);
 		}
 	}
-	if (pFilter)
+	if (pFilter && pMac->roam.configParam.is_bssid_hint_priority &&
+	    !qdf_mem_cmp(pResult->Result.BssDescriptor.bssId,
+			 pFilter->bssid_hint.bytes, QDF_MAC_ADDR_SIZE)) {
+		sme_debug("BSSID hint AP "MAC_ADDRESS_STR " give max score",
+			  MAC_ADDR_ARRAY(pFilter->bssid_hint.bytes));
+		pResult->bss_score = BEST_CANDIDATE_MAX_BSS_SCORE;
+	} else if (pFilter) {
 		csr_calculate_bss_score(pMac, pResult, pcl_chan_weight);
+	}
 
 	/*
 	 * No need to lock pRetList because it is locally allocated and no
@@ -2459,17 +2464,7 @@ csr_save_scan_entry(tpAniSirGlobal pMac,
 		(*count)++;
 		return status;
 	}
-	if (pFilter &&
-	   !qdf_mem_cmp(pResult->Result.BssDescriptor.bssId,
-	   pFilter->bssid_hint.bytes, QDF_MAC_ADDR_SIZE) &&
-	   pMac->roam.configParam.is_bssid_hint_priority) {
-		/* bssid hint AP should be on head */
-		csr_ll_insert_head(&pRetList->List,
-			&pResult->Link, LL_ACCESS_NOLOCK);
-		(*count)++;
-		pResult->bss_score = BEST_CANDIDATE_MAX_BSS_SCORE;
-		return status;
-	}
+
 	pTmpEntry = csr_ll_peek_head(&pRetList->List, LL_ACCESS_NOLOCK);
 	while (pTmpEntry) {
 		pTmpResult = GET_BASE_ADDR(pTmpEntry, struct tag_csrscan_result,

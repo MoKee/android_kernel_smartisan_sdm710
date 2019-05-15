@@ -1903,6 +1903,7 @@ __lim_process_sme_join_req(tpAniSirGlobal mac_ctx, uint32_t *msg_buf)
 		session->maxTxPower = lim_get_max_tx_power(reg_max,
 					local_power_constraint,
 					mac_ctx->roam.configParam.nTxPowerCap);
+		session->def_max_tx_pwr = session->maxTxPower;
 
 		pe_debug("Reg max %d local power con %d max tx pwr %d",
 			reg_max, local_power_constraint, session->maxTxPower);
@@ -5067,7 +5068,7 @@ static void lim_process_sme_update_access_policy_vendor_ie(
 {
 	struct sme_update_access_policy_vendor_ie *update_vendor_ie;
 	struct sPESession *pe_session_entry;
-	uint8_t num_bytes;
+	uint16_t num_bytes;
 
 	if (!msg) {
 		pe_err("Buffer is Pointing to NULL");

@@ -99,10 +99,16 @@ static void wma_send_bcn_buf_ll(tp_wma_handle wma,
 	uint8_t i;
 
 	bcn = wma->interfaces[vdev_id].beacon;
-	if (!bcn->buf) {
+	if (!bcn || !bcn->buf) {
 		WMA_LOGE("%s: Invalid beacon buffer", __func__);
 		return;
 	}
+
+	if (!param_buf->tim_info || !param_buf->p2p_noa_info) {
+		WMA_LOGE("%s: Invalid tim info or p2p noa info", __func__);
+		return;
+	}
+
 	if (WMI_UNIFIED_NOA_ATTR_NUM_DESC_GET(p2p_noa_info) >
 			WMI_P2P_MAX_NOA_DESCRIPTORS) {
 		WMA_LOGE("%s: Too many descriptors %d", __func__,
@@ -3240,6 +3246,12 @@ int wma_process_bip(tp_wma_handle wma_handle,
 	uint8_t *efrm;
 
 	efrm = qdf_nbuf_data(wbuf) + qdf_nbuf_len(wbuf);
+	/* Check if frame is invalid length */
+	if (efrm - (uint8_t *)wh < sizeof(*wh) + cds_get_mmie_size()) {
+		WMA_LOGE(FL("Invalid frame length"));
+		return -EINVAL;
+	}
+
 	key_id = (uint16_t)*(efrm - cds_get_mmie_size() + 2);
 
 	if (!((key_id == WMA_IGTK_KEY_INDEX_4)

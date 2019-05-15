@@ -851,6 +851,8 @@ static void wma_set_modulated_dtim(tp_wma_handle wma,
 		&wma->interfaces[vdev_id];
 	bool prev_dtim_enabled;
 	uint32_t listen_interval;
+	uint32_t beacon_interval_mod;
+	uint32_t max_mod_dtim;
 	QDF_STATUS ret;
 
 	iface->alt_modulated_dtim = privcmd->param_value;
@@ -865,22 +867,41 @@ static void wma_set_modulated_dtim(tp_wma_handle wma,
 	if ((true == iface->alt_modulated_dtim_enabled) ||
 	    (true == prev_dtim_enabled)) {
 
-		listen_interval = iface->alt_modulated_dtim
-			* iface->dtimPeriod;
+		beacon_interval_mod = iface->beaconInterval / 100;
+		if (!beacon_interval_mod)
+			beacon_interval_mod = 1;
 
-		ret = wma_vdev_set_param(wma->wmi_handle,
-						privcmd->param_vdev_id,
-						WMI_VDEV_PARAM_LISTEN_INTERVAL,
-						listen_interval);
+		if (iface->dtimPeriod)
+			max_mod_dtim = wma->staMaxLIModDtim
+				/ (iface->dtimPeriod*beacon_interval_mod);
+		else
+			max_mod_dtim = wma->staMaxLIModDtim/beacon_interval_mod;
+
+		if (!max_mod_dtim)
+			max_mod_dtim = 1;
+
+		if (iface->alt_modulated_dtim > max_mod_dtim) {
+			WMA_LOGE("User ModDtim(%d) exceeding ceiling limit(%d)",
+				 iface->alt_modulated_dtim, max_mod_dtim);
+			listen_interval = max_mod_dtim * iface->dtimPeriod;
+		} else {
+			listen_interval = iface->alt_modulated_dtim
+						* iface->dtimPeriod;
+		}
+
+		WMA_LOGD("Setting Listen Interval %d for vdev id %d",
+			 listen_interval, vdev_id);
+		ret = wma_vdev_set_param(wma->wmi_handle, vdev_id,
+					 WMI_VDEV_PARAM_LISTEN_INTERVAL,
+					 listen_interval);
 		if (QDF_IS_STATUS_ERROR(ret))
 			/* Even if it fails, continue */
 			WMA_LOGW("Failed to set listen interval %d",
 				 listen_interval);
 
-		ret = wma_vdev_set_param(wma->wmi_handle,
-						privcmd->param_vdev_id,
-						WMI_VDEV_PARAM_DTIM_POLICY,
-						NORMAL_DTIM);
+		ret = wma_vdev_set_param(wma->wmi_handle, vdev_id,
+					 WMI_VDEV_PARAM_DTIM_POLICY,
+					 NORMAL_DTIM);
 		if (QDF_IS_STATUS_ERROR(ret))
 			WMA_LOGE("Failed to Set to Normal DTIM policy");
 	}
@@ -1919,6 +1940,7 @@ static void wma_shutdown_notifier_cb(void *priv)
 	tp_wma_handle wma_handle = priv;
 
 	qdf_event_set(&wma_handle->wma_resume_event);
+	wmi_stop(wma_handle->wmi_handle);
 	wma_cleanup_vdev_resp_queue(wma_handle);
 	wma_cleanup_hold_req(wma_handle);
 }
@@ -2233,6 +2255,81 @@ void wma_vdev_init(struct wma_txrx_node *vdev)
 
 void wma_vdev_deinit(struct wma_txrx_node *vdev)
 {
+	struct beacon_info *bcn;
+	tp_wma_handle wma_handle;
+
+	wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
+	/* validate the wma_handle */
+	if (!wma_handle) {
+		WMA_LOGE("%s: Invalid wma handle", __func__);
+		return;
+	}
+
+	bcn = vdev->beacon;
+	if (bcn) {
+		if (bcn->dma_mapped)
+			qdf_nbuf_unmap_single(wma_handle->qdf_dev,
+				bcn->buf, QDF_DMA_TO_DEVICE);
+		qdf_nbuf_free(bcn->buf);
+		qdf_mem_free(bcn);
+		vdev->beacon = NULL;
+	}
+
+	if (vdev->handle) {
+		qdf_mem_free(vdev->handle);
+		vdev->handle = NULL;
+	}
+
+	if (vdev->addBssStaContext) {
+		qdf_mem_free(vdev->addBssStaContext);
+		vdev->addBssStaContext = NULL;
+	}
+
+	if (vdev->staKeyParams) {
+		qdf_mem_free(vdev->staKeyParams);
+		vdev->staKeyParams = NULL;
+	}
+
+	if (vdev->del_staself_req) {
+		qdf_mem_free(vdev->del_staself_req);
+		vdev->del_staself_req = NULL;
+	}
+
+	if (vdev->stats_rsp) {
+		qdf_mem_free(vdev->stats_rsp);
+		vdev->stats_rsp = NULL;
+	}
+
+	if (vdev->psnr_req) {
+		qdf_mem_free(vdev->psnr_req);
+		vdev->psnr_req = NULL;
+	}
+
+	if (vdev->rcpi_req) {
+		qdf_mem_free(vdev->rcpi_req);
+		vdev->rcpi_req = NULL;
+	}
+
+	if (vdev->action_frame_filter) {
+		qdf_mem_free(vdev->action_frame_filter);
+		vdev->action_frame_filter = NULL;
+	}
+
+	if (vdev->roam_synch_frame_ind.bcn_probe_rsp) {
+		qdf_mem_free(vdev->roam_synch_frame_ind.bcn_probe_rsp);
+		vdev->roam_synch_frame_ind.bcn_probe_rsp = NULL;
+	}
+
+	if (vdev->roam_synch_frame_ind.reassoc_req) {
+		qdf_mem_free(vdev->roam_synch_frame_ind.reassoc_req);
+		vdev->roam_synch_frame_ind.reassoc_req = NULL;
+	}
+
+	if (vdev->roam_synch_frame_ind.reassoc_rsp) {
+		qdf_mem_free(vdev->roam_synch_frame_ind.reassoc_rsp);
+		vdev->roam_synch_frame_ind.reassoc_rsp = NULL;
+	}
+
 	qdf_wake_lock_destroy(&vdev->vdev_start_wakelock);
 	qdf_wake_lock_destroy(&vdev->vdev_stop_wakelock);
 	qdf_wake_lock_destroy(&vdev->vdev_set_key_wakelock);
@@ -3153,8 +3250,7 @@ static int wma_pdev_set_hw_mode_resp_evt_handler(void *handle,
 		pdev_id = vdev_mac_entry[i].pdev_id;
 		if (pdev_id == WMI_PDEV_ID_SOC) {
 			WMA_LOGE("%s: soc level id received for mac id)",
-				__func__);
-			QDF_BUG(0);
+				 __func__);
 			goto fail;
 		}
 		if (vdev_id >= wma->max_bssid) {
@@ -3246,8 +3342,7 @@ void wma_process_pdev_hw_mode_trans_ind(void *handle,
 
 		if (pdev_id == WMI_PDEV_ID_SOC) {
 			WMA_LOGE("%s: soc level id received for mac id)",
-					__func__);
-			QDF_BUG(0);
+				 __func__);
 			return;
 		}
 		if (vdev_id >= wma->max_bssid) {
@@ -3798,7 +3893,6 @@ end:
 QDF_STATUS wma_wmi_service_close(void *cds_ctx)
 {
 	tp_wma_handle wma_handle;
-	struct beacon_info *bcn;
 	int i;
 
 	WMA_LOGD("%s: Enter", __func__);
@@ -3823,80 +3917,6 @@ QDF_STATUS wma_wmi_service_close(void *cds_ctx)
 	wma_handle->wmi_handle = NULL;
 
 	for (i = 0; i < wma_handle->max_bssid; i++) {
-		bcn = wma_handle->interfaces[i].beacon;
-
-		if (bcn) {
-			if (bcn->dma_mapped)
-				qdf_nbuf_unmap_single(wma_handle->qdf_dev,
-					bcn->buf, QDF_DMA_TO_DEVICE);
-			qdf_nbuf_free(bcn->buf);
-			qdf_mem_free(bcn);
-			wma_handle->interfaces[i].beacon = NULL;
-		}
-
-		if (wma_handle->interfaces[i].handle) {
-			qdf_mem_free(wma_handle->interfaces[i].handle);
-			wma_handle->interfaces[i].handle = NULL;
-		}
-
-		if (wma_handle->interfaces[i].addBssStaContext) {
-			qdf_mem_free(wma_handle->
-				     interfaces[i].addBssStaContext);
-			wma_handle->interfaces[i].addBssStaContext = NULL;
-		}
-
-		if (wma_handle->interfaces[i].del_staself_req) {
-			qdf_mem_free(wma_handle->interfaces[i].del_staself_req);
-			wma_handle->interfaces[i].del_staself_req = NULL;
-		}
-
-		if (wma_handle->interfaces[i].stats_rsp) {
-			qdf_mem_free(wma_handle->interfaces[i].stats_rsp);
-			wma_handle->interfaces[i].stats_rsp = NULL;
-		}
-
-		if (wma_handle->interfaces[i].psnr_req) {
-			qdf_mem_free(wma_handle->
-				     interfaces[i].psnr_req);
-			wma_handle->interfaces[i].psnr_req = NULL;
-		}
-
-		if (wma_handle->interfaces[i].rcpi_req) {
-			qdf_mem_free(wma_handle->
-				     interfaces[i].rcpi_req);
-			wma_handle->interfaces[i].rcpi_req = NULL;
-		}
-
-		if (wma_handle->interfaces[i].action_frame_filter) {
-			qdf_mem_free(wma_handle->
-				     interfaces[i].action_frame_filter);
-			wma_handle->interfaces[i].action_frame_filter = NULL;
-		}
-
-		if (wma_handle->interfaces[i].roam_synch_frame_ind.
-		    bcn_probe_rsp) {
-			qdf_mem_free(wma_handle->interfaces[i].
-			      roam_synch_frame_ind.bcn_probe_rsp);
-			wma_handle->interfaces[i].roam_synch_frame_ind.
-				     bcn_probe_rsp = NULL;
-		}
-
-		if (wma_handle->interfaces[i].roam_synch_frame_ind.
-		    reassoc_req) {
-			qdf_mem_free(wma_handle->interfaces[i].
-				     roam_synch_frame_ind.reassoc_req);
-			wma_handle->interfaces[i].roam_synch_frame_ind.
-				     reassoc_req = NULL;
-		}
-
-		if (wma_handle->interfaces[i].roam_synch_frame_ind.
-		    reassoc_rsp) {
-			qdf_mem_free(wma_handle->interfaces[i].
-				     roam_synch_frame_ind.reassoc_rsp);
-			wma_handle->interfaces[i].roam_synch_frame_ind.
-				     reassoc_rsp = NULL;
-		}
-
 		wma_vdev_deinit(&wma_handle->interfaces[i]);
 	}
 
@@ -7846,6 +7866,7 @@ QDF_STATUS wma_mc_process_msg(void *cds_context, cds_msg_t *msg)
 	case WMA_RESET_PASSPOINT_LIST_REQ:
 		wma_reset_passpoint_network_list(wma_handle,
 			(struct wifi_passpoint_req *)msg->bodyptr);
+		qdf_mem_free(msg->bodyptr);
 		break;
 #endif /* FEATURE_WLAN_EXTSCAN */
 	case WMA_SET_SCAN_MAC_OUI_REQ:

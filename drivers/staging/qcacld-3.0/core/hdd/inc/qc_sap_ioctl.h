@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -43,11 +43,6 @@
 #define QCSAP_ADDR_LEN  6
 
 typedef uint8_t qcmacaddr[QCSAP_ADDR_LEN];
-
-struct qc_mac_acl_entry {
-	qcmacaddr addr;
-	int vlan_id;
-};
 
 /*
  * Retrieve the WPA/RSN information element for an associated station.
@@ -114,10 +109,8 @@ struct channel_list_info {
 #define QCSAP_IOCTL_PRIV_SET_THREE_INT_GET_NONE (SIOCIWFIRSTPRIV + 15)
 #define WE_SET_WLAN_DBG 1
 #define WE_SET_DP_TRACE 2
-#define WE_SET_SAP_CHANNELS  3
 #define QCSAP_IOCTL_PRIV_SET_VAR_INT_GET_NONE (SIOCIWFIRSTPRIV + 16)
 #define WE_UNIT_TEST_CMD   7
-#define QCSAP_IOCTL_SET_CHANNEL_RANGE (SIOCIWFIRSTPRIV + 17)
 
 #define WE_P2P_NOA_CMD  2
 
@@ -194,7 +187,6 @@ enum {
 	QCSAP_PARAM_CLR_ACL = 4,
 	QCSAP_PARAM_ACL_MODE,
 	QCSAP_PARAM_HIDE_SSID,
-	QCSAP_PARAM_AUTO_CHANNEL,
 	QCSAP_PARAM_SET_MC_RATE,
 	QCSAP_PARAM_SET_TXRX_FW_STATS,
 	QCSAP_PARAM_SET_MCC_CHANNEL_LATENCY,

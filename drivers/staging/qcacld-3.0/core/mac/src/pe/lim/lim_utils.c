@@ -610,8 +610,16 @@ void lim_deactivate_timers(tpAniSirGlobal mac_ctx)
 	/* Deactivate remain on channel timer */
 	tx_timer_deactivate(&lim_timer->gLimRemainOnChannelTimer);
 
+	if (tx_timer_running(&lim_timer->gLimDisassocAckTimer)) {
+		pe_err("Disassoc timer running call the timeout API");
+		lim_timer_handler(mac_ctx, SIR_LIM_DISASSOC_ACK_TIMEOUT);
+	}
 	tx_timer_deactivate(&lim_timer->gLimDisassocAckTimer);
 
+	if (tx_timer_running(&lim_timer->gLimDeauthAckTimer)) {
+		pe_err("Deauth timer running call the timeout API");
+		lim_timer_handler(mac_ctx, SIR_LIM_DEAUTH_ACK_TIMEOUT);
+	}
 	tx_timer_deactivate(&lim_timer->gLimDeauthAckTimer);
 
 	tx_timer_deactivate(&lim_timer->
@@ -5479,10 +5487,8 @@ void lim_process_add_sta_rsp(tpAniSirGlobal mac_ctx, tpSirMsgQ msg)
 	else if (LIM_IS_NDI_ROLE(session))
 		lim_ndp_add_sta_rsp(mac_ctx, session, msg->bodyptr);
 #ifdef FEATURE_WLAN_TDLS
-	else if (mac_ctx->lim.gLimAddStaTdls) {
+	else if (add_sta_params->staType == STA_ENTRY_TDLS_PEER)
 		lim_process_tdls_add_sta_rsp(mac_ctx, msg->bodyptr, session);
-		mac_ctx->lim.gLimAddStaTdls = false;
-	}
 #endif
 	else
 		lim_process_mlm_add_sta_rsp(mac_ctx, msg, session);
