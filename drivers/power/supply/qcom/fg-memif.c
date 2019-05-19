@@ -746,11 +746,7 @@ out:
 	return rc;
 }
 
-#ifdef CONFIG_VENDOR_SMARTISAN
-#define MEM_GNT_WAIT_TIME_US	20000
-#else
 #define MEM_GNT_WAIT_TIME_US	10000
-#endif
 #define MEM_GNT_RETRIES		50
 static int fg_direct_mem_request(struct fg_chip *chip, bool request)
 {
