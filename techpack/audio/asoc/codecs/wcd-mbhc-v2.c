@@ -32,6 +32,9 @@
 #include "wcd-mbhc-legacy.h"
 #include "wcd-mbhc-adc.h"
 #include "wcd-mbhc-v2-api.h"
+#ifdef CONFIG_VENDOR_SMARTISAN
+#include "sdm670.h"
+#endif
 
 void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 			  struct snd_soc_jack *jack, int status, int mask)
@@ -526,6 +529,11 @@ void wcd_mbhc_hs_elec_irq(struct wcd_mbhc *mbhc, int irq_type,
 {
 	int irq;
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	/* disable this irq all the time */
+	enable = 0;
+#endif
+
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
 	if (irq_type == WCD_MBHC_ELEC_HS_INS)
@@ -721,6 +729,12 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
+#ifdef CONFIG_VENDOR_SMARTISAN
+		if ((mbhc->hph_status & SND_JACK_HEADSET) == SND_JACK_HEADSET)
+			mbhc->micbias_enable = true;
+		else
+			mbhc->micbias_enable = false;
+#endif
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    (mbhc->hph_status | SND_JACK_MECHANICAL),
 				    WCD_MBHC_JACK_MASK);
@@ -1153,6 +1167,11 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 	if (mbhc->mbhc_detection_logic == WCD_DETECTION_LEGACY &&
 		mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 		wcd_mbhc_find_plug_and_report(mbhc, MBHC_PLUG_TYPE_HEADSET);
+#ifdef CONFIG_VENDOR_SMARTISAN
+		/* workaround: headset slow insertion */
+		if (mbhc->micbias_enable)
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
+#endif
 		goto exit;
 
 	}
@@ -1476,6 +1495,97 @@ static int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
 		mbhc->is_btn_already_regd = true;
 	return result;
 }
+
+#ifdef CONFIG_VENDOR_SMARTISAN
+extern int get_hw_version_id(void);
+
+bool msm_usbc_swap_gnd_init(struct snd_soc_card *card)
+{
+	int ret = true;
+	int hw_version = -1;
+	bool is_dvt1 = false;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	static int initialized = false;
+	struct pinctrl_state *en2_pinctrl_active;
+	struct pinctrl_state *en2_pinctrl_sleep;
+	struct pinctrl_state *en2_pinctrl_default;
+
+	if (initialized)
+		return true;
+
+	hw_version = get_hw_version_id();
+	if (hw_version == 0)
+		is_dvt1 = true;
+	else
+		is_dvt1 = false;
+
+	dev_info(card->dev, "Hardward Board Version: 0x%x, is_dvt1: %d\n",
+		hw_version, is_dvt1);
+
+	if (!pdata->usbc_en2_gpio_p) {
+		/* if active and usbc_en2_gpio undefined, get pin */
+		pdata->usbc_en2_gpio_p = devm_pinctrl_get(card->dev);
+		if (IS_ERR_OR_NULL(pdata->usbc_en2_gpio_p)) {
+			dev_err(card->dev,
+				"%s: Can't get EN2 gpio pinctrl:%ld\n",
+				__func__,
+				PTR_ERR(pdata->usbc_en2_gpio_p));
+			pdata->usbc_en2_gpio_p = NULL;
+			ret = false;
+			goto err1;
+		}
+	}
+
+	pdata->usbc_en2_gpio = of_get_named_gpio(card->dev->of_node,
+				    "qcom,usbc-analog-en2-gpio", 0);
+	if (!gpio_is_valid(pdata->usbc_en2_gpio)) {
+		dev_err(card->dev, "%s, property %s not in node %s",
+			__func__, "qcom,usbc-analog-en2-gpio",
+			card->dev->of_node->full_name);
+		ret = false;
+		goto err1;
+	}
+
+	en2_pinctrl_active = pinctrl_lookup_state(pdata->usbc_en2_gpio_p,
+		is_dvt1 ? "aud_active_dvt1" : "aud_active_dvt2");
+	if (IS_ERR_OR_NULL(en2_pinctrl_active)) {
+		dev_err(card->dev,
+			"%s: Cannot get aud_active pinctrl state:%ld\n",
+			__func__, PTR_ERR(en2_pinctrl_active));
+		ret = false;
+		goto err1;
+	}
+
+	en2_pinctrl_sleep = pinctrl_lookup_state(pdata->usbc_en2_gpio_p,
+		is_dvt1 ? "aud_sleep_dvt1" : "aud_sleep_dvt2");
+	if (IS_ERR_OR_NULL(en2_pinctrl_sleep)) {
+		dev_err(card->dev,
+			"%s: Cannot get aud_sleep pinctrl state:%ld\n",
+			__func__, PTR_ERR(en2_pinctrl_sleep));
+		ret = false;
+		goto err1;
+	}
+
+	en2_pinctrl_default = pinctrl_lookup_state(pdata->usbc_en2_gpio_p, "default");
+	if (IS_ERR_OR_NULL(en2_pinctrl_default)) {
+		dev_err(card->dev,
+			"%s: Cannot get default pinctrl state:%ld\n",
+			__func__, PTR_ERR(en2_pinctrl_default));
+		ret = false;
+		goto err1;
+	}
+
+	pdata->en2_pinctrl_active = en2_pinctrl_active;
+	pdata->en2_pinctrl_sleep = en2_pinctrl_sleep;
+	pdata->en2_pinctrl_default = en2_pinctrl_default;
+
+	initialized = true;
+err1:
+	return ret;
+}
+
+EXPORT_SYMBOL(msm_usbc_swap_gnd_init);
+#endif
 
 static int wcd_mbhc_usb_c_analog_setup_gpios(struct wcd_mbhc *mbhc,
 					     bool active)

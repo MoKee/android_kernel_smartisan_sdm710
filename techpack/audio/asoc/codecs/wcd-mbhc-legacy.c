@@ -453,6 +453,13 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	int cross_conn;
 	int try = 0;
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	int swap_gnd_mic_flag = 0;
+	int skip_ck_cross_conn_flag = 0;
+	int should_optimize = 1;
+	int first_time = 1;
+#endif
+
 	pr_debug("%s: enter\n", __func__);
 
 	mbhc = container_of(work, struct wcd_mbhc, correct_plug_swch);
@@ -508,6 +515,9 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		pr_debug("%s: cross con found, start polling\n",
 			 __func__);
 		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
+#ifdef CONFIG_VENDOR_SMARTISAN
+		swap_gnd_mic_flag = 1;
+#endif
 		pr_debug("%s: Plug found, plug type is %d\n",
 			 __func__, plug_type);
 		goto correct_plug_type;
@@ -594,12 +604,40 @@ correct_plug_type:
 
 		if ((!hs_comp_res) && (!is_pa_on)) {
 			/* Check for cross connection*/
+#ifdef CONFIG_VENDOR_SMARTISAN
+			ret = skip_ck_cross_conn_flag ? 0 : wcd_check_cross_conn(mbhc);
+#else
 			ret = wcd_check_cross_conn(mbhc);
+#endif
 			if (ret < 0) {
+#ifdef CONFIG_VENDOR_SMARTISAN
+				if (first_time) {
+					first_time = 0;
+					should_optimize = 0;
+					pr_debug("%s: ret: %d, so will not optimize\n", __func__, ret);
+				}
+#endif
 				continue;
 			} else if (ret > 0) {
 				pt_gnd_mic_swap_cnt++;
 				no_gnd_mic_swap_cnt = 0;
+#ifdef CONFIG_VENDOR_SMARTISAN
+				if (first_time) {
+					first_time = 0;
+					if (!swap_gnd_mic_flag) {
+						should_optimize = 0;
+						pr_debug("%s: ret: %d, swap_gnd_mic_flag: %d, so will not optimize\n",__func__, ret, swap_gnd_mic_flag);
+					} else {
+						pr_debug("%s: ret: %d, swap_gnd_mic_flag: %d, so will optimize\n",__func__, ret, swap_gnd_mic_flag);
+					}
+				}
+				if (should_optimize) {
+					if (swap_gnd_mic_flag) {
+						pt_gnd_mic_swap_cnt = GND_MIC_SWAP_THRESHOLD;
+						skip_ck_cross_conn_flag = 1;
+					}
+				}
+#endif
 				if (pt_gnd_mic_swap_cnt <
 						mbhc->swap_thr) {
 					continue;
@@ -620,6 +658,22 @@ correct_plug_type:
 				no_gnd_mic_swap_cnt++;
 				pt_gnd_mic_swap_cnt = 0;
 				plug_type = MBHC_PLUG_TYPE_HEADSET;
+#ifdef CONFIG_VENDOR_SMARTISAN
+				if (first_time) {
+					first_time = 0;
+					if (swap_gnd_mic_flag) {
+						should_optimize = 0;
+						pr_debug("%s: ret: %d, swap_gnd_mic_flag: %d, so will not optimize\n",__func__, ret, swap_gnd_mic_flag);
+					} else
+						pr_debug("%s: ret: %d, swap_gnd_mic_flag: %d, so will optimize\n",__func__, ret, swap_gnd_mic_flag);
+				}
+				if (should_optimize) {
+					if (!swap_gnd_mic_flag) {
+						no_gnd_mic_swap_cnt = GND_MIC_SWAP_THRESHOLD;
+						skip_ck_cross_conn_flag = 1;
+					}
+				}
+#endif
 				if ((no_gnd_mic_swap_cnt <
 				    GND_MIC_SWAP_THRESHOLD) &&
 				    (spl_hs_count != WCD_MBHC_SPL_HS_CNT)) {

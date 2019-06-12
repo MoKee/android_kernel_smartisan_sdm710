@@ -138,10 +138,18 @@ do {                                                    \
 				  SND_JACK_BTN_2 | SND_JACK_BTN_3 | \
 				  SND_JACK_BTN_4 | SND_JACK_BTN_5)
 #define OCP_ATTEMPT 20
+#ifdef CONFIG_VENDOR_SMARTISAN
+#define HS_DETECT_PLUG_TIME_MS (2 * 1000)
+#else
 #define HS_DETECT_PLUG_TIME_MS (3 * 1000)
+#endif
 #define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
+#ifdef CONFIG_VENDOR_SMARTISAN
+#define GND_MIC_SWAP_THRESHOLD 2
+#else
 #define GND_MIC_SWAP_THRESHOLD 4
+#endif
 #define GND_MIC_USBC_SWAP_THRESHOLD 2
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
 #define HS_VREF_MIN_VAL 1400

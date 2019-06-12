@@ -237,14 +237,24 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
 	.key_code[0] = KEY_MEDIA,
+#ifdef CONFIG_VENDOR_SMARTISAN
+	.key_code[1] = KEY_VOLUMEUP,
+	.key_code[2] = KEY_VOLUMEDOWN,
+	.key_code[3] = KEY_SAVE,
+#else
 	.key_code[1] = KEY_VOICECOMMAND,
 	.key_code[2] = KEY_VOLUMEUP,
 	.key_code[3] = KEY_VOLUMEDOWN,
+#endif
 	.key_code[4] = 0,
 	.key_code[5] = 0,
 	.key_code[6] = 0,
 	.key_code[7] = 0,
+#ifdef CONFIG_VENDOR_SMARTISAN
+	.linein_th = 0,
+#else
 	.linein_th = 5000,
+#endif
 	.moisture_en = false,
 	.mbhc_micbias = 0,
 	.anc_micbias = 0,
@@ -2928,11 +2938,18 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 	bool ret = false;
 	struct snd_soc_card *card = codec->component.card;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+#ifdef CONFIG_VENDOR_SMARTISAN
+	struct pinctrl_state *en2_pinctrl_active = NULL;
+	struct pinctrl_state *en2_pinctrl_sleep = NULL;
+#else
 	struct pinctrl_state *en2_pinctrl_active;
 	struct pinctrl_state *en2_pinctrl_sleep;
+#endif
 
 	if (!pdata->usbc_en2_gpio_p) {
+#ifndef CONFIG_VENDOR_SMARTISAN
 		if (active) {
+#endif
 			/* if active and usbc_en2_gpio undefined, get pin */
 			pdata->usbc_en2_gpio_p = devm_pinctrl_get(card->dev);
 			if (IS_ERR_OR_NULL(pdata->usbc_en2_gpio_p)) {
@@ -2943,10 +2960,12 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 				pdata->usbc_en2_gpio_p = NULL;
 				return false;
 			}
+#ifndef CONFIG_VENDOR_SMARTISAN
 		} else {
 			/* if not active and usbc_en2_gpio undefined, return */
 			return false;
 		}
+#endif
 	}
 
 	pdata->usbc_en2_gpio = of_get_named_gpio(card->dev->of_node,
@@ -2958,6 +2977,9 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 		return false;
 	}
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (!en2_pinctrl_active) {
+#endif
 	en2_pinctrl_active = pinctrl_lookup_state(
 					pdata->usbc_en2_gpio_p, "aud_active");
 	if (IS_ERR_OR_NULL(en2_pinctrl_active)) {
@@ -2965,9 +2987,18 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 			"%s: Cannot get aud_active pinctrl state:%ld\n",
 			__func__, PTR_ERR(en2_pinctrl_active));
 		ret = false;
+#ifdef CONFIG_VENDOR_SMARTISAN
+		en2_pinctrl_active = NULL;
+#endif
 		goto err_lookup_state;
 	}
+#ifdef CONFIG_VENDOR_SMARTISAN
+	}
+#endif
 
+#ifdef CONFIG_VENDOR_SMARTISAN
+	if (!en2_pinctrl_sleep) {
+#endif
 	en2_pinctrl_sleep = pinctrl_lookup_state(
 					pdata->usbc_en2_gpio_p, "aud_sleep");
 	if (IS_ERR_OR_NULL(en2_pinctrl_sleep)) {
@@ -2975,8 +3006,14 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 			"%s: Cannot get aud_sleep pinctrl state:%ld\n",
 			__func__, PTR_ERR(en2_pinctrl_sleep));
 		ret = false;
+#ifdef CONFIG_VENDOR_SMARTISAN
+		en2_pinctrl_sleep = NULL;
+#endif
 		goto err_lookup_state;
 	}
+#ifdef CONFIG_VENDOR_SMARTISAN
+	}
+#endif
 
 	/* if active and usbc_en2_gpio_p defined, swap using usbc_en2_gpio_p */
 	if (active) {
@@ -2996,10 +3033,12 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 		pr_debug("%s: swap select switch %d to %d\n", __func__,
 			value, !value);
 		ret = true;
+#ifndef CONFIG_VENDOR_SMARTISAN
 	} else {
 		/* if not active, release usbc_en2_gpio_p pin */
 		pinctrl_select_state(pdata->usbc_en2_gpio_p,
 					en2_pinctrl_sleep);
+#endif
 	}
 
 err_lookup_state:
