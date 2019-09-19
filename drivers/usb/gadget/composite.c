@@ -2205,6 +2205,7 @@ void composite_disconnect(struct usb_gadget *gadget)
 		}
 		reset_config(cdev);
 	}
+	cdev->suspended = 0;
 	if (cdev->driver->disconnect)
 		cdev->driver->disconnect(cdev);
 	if (cdev->delayed_status != 0) {
